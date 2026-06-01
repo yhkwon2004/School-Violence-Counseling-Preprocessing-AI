@@ -16,6 +16,20 @@ export function shouldRequireAnalysisAfterRestore(
   return factCount === 0 || (restoredMemo !== null && restoredMemo !== serverMemo);
 }
 
+export function shouldRestoreDeviceDraft(
+  serverMemo: string,
+  serverUpdatedAt: string,
+  draft: { memo: string; updatedAt: string } | null,
+) {
+  if (!draft) return false;
+  if (draft.memo === serverMemo) return true;
+  const serverUpdatedAtMs = Date.parse(serverUpdatedAt);
+  const draftUpdatedAtMs = Date.parse(draft.updatedAt);
+  return !Number.isNaN(serverUpdatedAtMs)
+    && !Number.isNaN(draftUpdatedAtMs)
+    && draftUpdatedAtMs > serverUpdatedAtMs;
+}
+
 export type StudentSubmitBlockReason = 'analysis_required' | 'evidence_processing' | null;
 
 export function studentSubmitBlockReason(

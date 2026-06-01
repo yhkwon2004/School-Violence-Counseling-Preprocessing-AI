@@ -27,6 +27,7 @@ import {
 } from '../src/studentApi';
 import {
   shouldRequireAnalysisAfterRestore,
+  shouldRestoreDeviceDraft,
   shouldShowLockedStudentCase,
   shouldBlockAnalysisStepAdvance,
   studentSubmitBlockReason,
@@ -111,11 +112,14 @@ export default function StudentWizard() {
       return;
     }
     const snapshot = await draftStore.read(record.id).catch(() => null);
-    const restoredMemo = snapshot?.memo ?? null;
-    if (snapshot) {
+    const restoreDeviceDraft = shouldRestoreDeviceDraft(record.memo, record.updatedAt, snapshot);
+    const restoredMemo = restoreDeviceDraft ? snapshot?.memo ?? null : null;
+    if (snapshot && restoreDeviceDraft) {
       setMemo(snapshot.memo);
       setStep(snapshot.step);
       setRestored(true);
+    } else if (snapshot) {
+      await draftStore.clear(record.id).catch(() => undefined);
     }
     const { factCount } = await refreshConnectedData(record.id);
     setAnalysisRequired(shouldRequireAnalysisAfterRestore(record.memo, restoredMemo, factCount));

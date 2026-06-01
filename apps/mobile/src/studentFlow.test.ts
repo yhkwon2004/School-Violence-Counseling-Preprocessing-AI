@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   isStudentCaseEditable,
   shouldRequireAnalysisAfterRestore,
+  shouldRestoreDeviceDraft,
   shouldShowLockedStudentCase,
   shouldBlockAnalysisStepAdvance,
   studentSubmitBlockReason,
@@ -26,6 +27,23 @@ describe('studentFlow', () => {
     expect(shouldRequireAnalysisAfterRestore('server memo', null, 0)).toBe(true);
     expect(shouldRequireAnalysisAfterRestore('server memo', 'device memo', 2)).toBe(true);
     expect(shouldRequireAnalysisAfterRestore('same memo', 'same memo', 2)).toBe(false);
+  });
+
+  it('restores same-content progress or a newer device memo without replacing a newer server memo', () => {
+    const serverUpdatedAt = '2026-06-01T12:00:00.000Z';
+    expect(shouldRestoreDeviceDraft('server memo', serverUpdatedAt, null)).toBe(false);
+    expect(shouldRestoreDeviceDraft('same memo', serverUpdatedAt, {
+      memo: 'same memo',
+      updatedAt: '2026-06-01T11:00:00.000Z',
+    })).toBe(true);
+    expect(shouldRestoreDeviceDraft('server memo', serverUpdatedAt, {
+      memo: 'newer device memo',
+      updatedAt: '2026-06-01T12:00:01.000Z',
+    })).toBe(true);
+    expect(shouldRestoreDeviceDraft('server memo', serverUpdatedAt, {
+      memo: 'stale device memo',
+      updatedAt: '2026-06-01T11:59:59.000Z',
+    })).toBe(false);
   });
 
   it('blocks submission until facts and evidence processing are ready', () => {

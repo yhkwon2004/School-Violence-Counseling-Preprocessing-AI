@@ -73,6 +73,7 @@
 - OpenAI 키 사용 경로는 합성 자료 전용 Edge 테스트에서 이미지 vision `input_image`, PDF `input_file`, 음성 STT stub 응답을 검증한다. hosted 배포 템플릿은 공식 OpenAI endpoint를 유지한다.
 - SecureStore 텍스트 초안은 작은 청크로 저장하고 읽기 전에 메모 길이·단계·날짜·청크 개수를 검증한다. 손상된 청크는 앱 진입을 막지 않고 정리한다.
 - 복구된 SecureStore 메모가 서버 메모보다 최신이면 기존 FactBlock 제출을 화면에서도 즉시 잠그고 재분석을 요구한다.
+- 서버와 기기 메모가 같으면 기기의 현재 단계만 복원한다. 메모가 다르면 기기 초안의 저장 시각이 서버보다 최신일 때만 복원하고, 오래된 기기 초안이 최신 서버 메모를 덮어쓰지 않게 정리한다.
 - CI는 Windows PowerShell 기반 readiness와 Android export를 실행해 로컬 검증 계약을 그대로 반복한다.
 - 기기 SecureStore 자동 저장·복구는 서버 제출과 분리한다. 로컬 초안 삭제 실패가 이미 완료된 제출을 실패처럼 보이게 만들지 않는다.
 - 증거 bucket은 private이며 원본 객체 직접 URL 접근은 허용하지 않는다. 앱과 웹은 권한 확인 뒤 발급된 짧은 수명의 서명 URL만 사용한다.
