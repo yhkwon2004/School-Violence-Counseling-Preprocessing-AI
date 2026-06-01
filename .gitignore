@@ -1,0 +1,17 @@
+node_modules
+dist
+.expo
+.env
+.env.local
+.env.*.local
+.vercel
+coverage
+*.log
+*.tsbuildinfo
+apps/mobile/.expo
+apps/mobile/android
+apps/mobile/ios
+supabase/.branches
+supabase/.temp
+supabase/functions/.env.deploy
+supabase/.env.hosted

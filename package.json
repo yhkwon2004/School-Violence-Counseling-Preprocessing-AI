@@ -1,0 +1,43 @@
+{
+  "name": "ieumlog-school-safety-mvp",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspace @ieumlog/domain && npm run build --workspace @ieumlog/web",
+    "test": "npm run test --workspace @ieumlog/domain && npm run test:mobile-core && npm run test:web-core && npm run test:edge",
+    "test:mobile-core": "vitest run apps/mobile/src/draftChunks.test.ts apps/mobile/src/studentFlow.test.ts",
+    "test:web-core": "vitest run apps/web/src/evidenceMap.test.ts",
+    "test:edge": "vitest run supabase/functions/_shared/openai.test.ts",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "dev:web": "npm run dev --workspace @ieumlog/web --",
+    "dev:mobile": "npm run start --workspace @ieumlog/mobile --",
+    "supabase:start": "npx supabase start",
+    "supabase:stop": "npx supabase stop",
+    "supabase:reset": "npx supabase db reset",
+    "configure:web:local": "powershell -ExecutionPolicy Bypass -File scripts/configure-web-local.ps1",
+    "configure:mobile:lan": "powershell -ExecutionPolicy Bypass -File scripts/configure-mobile-lan.ps1",
+    "deploy:supabase": "powershell -ExecutionPolicy Bypass -File scripts/deploy-supabase.ps1",
+    "bootstrap:hosted-demo": "powershell -ExecutionPolicy Bypass -File scripts/bootstrap-hosted-demo.ps1",
+    "verify:deploy": "powershell -ExecutionPolicy Bypass -File scripts/verify-deploy-readiness.ps1",
+    "verify:hosted": "powershell -ExecutionPolicy Bypass -File scripts/verify-hosted.ps1",
+    "verify:local": "powershell -ExecutionPolicy Bypass -File scripts/verify-local.ps1",
+    "verify:web:local": "powershell -ExecutionPolicy Bypass -File scripts/verify-web-local.ps1",
+    "verify:web:ui-local": "powershell -ExecutionPolicy Bypass -File scripts/verify-web-ui-local.ps1",
+    "verify:mobile:lan": "powershell -ExecutionPolicy Bypass -File scripts/verify-mobile-lan.ps1",
+    "verify:mobile": "cd apps/mobile && npx expo-doctor && npx expo export --platform android --clear"
+  },
+  "overrides": {
+    "react": "19.1.0",
+    "react-dom": "19.1.0"
+  },
+  "devDependencies": {
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "supabase": "2.103.0",
+    "typescript": "^5.9.3"
+  }
+}
