@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   isStudentCaseEditable,
+  mergeQuestionAnswerDrafts,
   shouldRequireAnalysisAfterRestore,
   shouldRestoreDeviceDraft,
   shouldShowLockedStudentCase,
@@ -59,5 +60,25 @@ describe('studentFlow', () => {
     expect(shouldBlockAnalysisStepAdvance(false, true, 1)).toBe(true);
     expect(shouldBlockAnalysisStepAdvance(false, false, 0)).toBe(true);
     expect(shouldBlockAnalysisStepAdvance(false, false, 1)).toBe(false);
+  });
+
+  it('hydrates question answers without overwriting an in-progress local draft', () => {
+    expect(mergeQuestionAnswerDrafts({}, [
+      { id: 'question-1', answer: '서버 답변' },
+      { id: 'question-2', answer: null },
+    ])).toEqual({
+      'question-1': '서버 답변',
+      'question-2': '',
+    });
+    expect(mergeQuestionAnswerDrafts({
+      'question-1': '입력 중인 답변',
+      'removed-question': '정리 대상',
+    }, [
+      { id: 'question-1', answer: '이전 서버 답변' },
+      { id: 'question-2', answer: '새 서버 답변' },
+    ])).toEqual({
+      'question-1': '입력 중인 답변',
+      'question-2': '새 서버 답변',
+    });
   });
 });

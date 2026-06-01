@@ -49,3 +49,13 @@ export function shouldBlockAnalysisStepAdvance(
 ) {
   return analyzing || analysisRequired || factCount === 0;
 }
+
+export function mergeQuestionAnswerDrafts(
+  current: Record<string, string>,
+  questions: Array<{ id: string; answer?: string | null }>,
+) {
+  return Object.fromEntries(questions.map((question) => [
+    question.id,
+    current[question.id] ?? question.answer ?? '',
+  ]));
+}

@@ -298,6 +298,13 @@
 - 분석 실행 중에는 재분석 버튼을, 제출 실행 중에는 제출 버튼을 잠가 연속 탭이 중복 요청으로 이어지지 않게 한다.
 - 공용 기본 버튼의 확장 스타일은 하단 단계 내비게이션에서만 적용한다. 로그인 카드와 제출 완료 화면의 버튼은 세로 공간을 임의로 채우지 않는다.
 
+### Question answer drafts survive background refresh
+
+- 질문 입력은 제어형 로컬 초안으로 즉시 화면에 반영한다.
+- polling으로 서버 질문 목록을 다시 읽어도 같은 질문의 작성 중 답변은 보존하고 새 질문만 서버 답변으로 초기화한다.
+- 입력 종료 시 연결 서버에 답변을 저장한다. 저장 오류가 발생해도 학생이 입력한 문장을 화면에서 지우지 않고 재시도를 안내한다.
+- 메모 재분석을 시작하면 이전 질문 초안을 비워 새 FactBlock 질문에 오래된 답변을 재사용하지 않는다.
+
 ### Readiness accepts Windows checkout line endings
 
 - Windows GitHub Actions checkout은 텍스트 파일을 `CRLF`로 materialize할 수 있다.

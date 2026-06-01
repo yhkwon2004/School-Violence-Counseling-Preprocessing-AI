@@ -26,6 +26,7 @@ import {
   type RemoteQuestion,
 } from '../src/studentApi';
 import {
+  mergeQuestionAnswerDrafts,
   shouldRequireAnalysisAfterRestore,
   shouldRestoreDeviceDraft,
   shouldShowLockedStudentCase,
@@ -59,6 +60,7 @@ export default function StudentWizard() {
   const [memo, setMemo] = useState('');
   const [evidence, setEvidence] = useState<LocalEvidence[]>([]);
   const [questions, setQuestions] = useState<RemoteQuestion[]>([]);
+  const [questionAnswerDrafts, setQuestionAnswerDrafts] = useState<Record<string, string>>({});
   const [facts, setFacts] = useState<RemoteFact[]>([]);
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [analysisRequired, setAnalysisRequired] = useState(false);
@@ -88,6 +90,7 @@ export default function StudentWizard() {
       processingStatus: asset.processingStatus,
     })));
     setQuestions(remoteQuestions);
+    setQuestionAnswerDrafts((current) => mergeQuestionAnswerDrafts(current, remoteQuestions));
     setFacts(remoteFacts);
     return { factCount: remoteFacts.length };
   }, []);
@@ -100,6 +103,7 @@ export default function StudentWizard() {
     setStep(0);
     setEvidence([]);
     setQuestions([]);
+    setQuestionAnswerDrafts({});
     setFacts([]);
     setAnalysis(null);
     setAnalysisRequired(false);
@@ -195,6 +199,10 @@ export default function StudentWizard() {
     setAnalysisRequired(true);
   }, []);
 
+  const updateQuestionAnswerDraft = useCallback((id: string, answer: string) => {
+    setQuestionAnswerDrafts((current) => ({ ...current, [id]: answer }));
+  }, []);
+
   if (!loggedIn) {
     return (
       <SafeAreaView style={styles.safe}>
@@ -272,8 +280,8 @@ export default function StudentWizard() {
         {step === 0 && <SafetyStep />}
         {step === 1 && <MemoStep memo={memo} onChange={updateMemo} />}
         {step === 2 && <EvidenceStep evidence={evidence} onPick={() => void pickEvidence(caseId, evidence, setEvidence, setUploadingEvidence)} uploading={uploadingEvidence} />}
-        {step === 3 && <AnalysisStep analyzing={analyzing} analysis={analysis} evidence={evidence} onAnalyze={() => void runAnalysis(caseId, evidence, memo, setAnalyzing, setAnalysis, setFacts, setAnalysisRequired, refreshConnectedData)} />}
-        {step === 4 && <QuestionsStep analysis={analysis} questions={questions} onAnswer={(id, answer) => void saveAnswer(id, answer, questions, setQuestions)} />}
+        {step === 3 && <AnalysisStep analyzing={analyzing} analysis={analysis} evidence={evidence} onAnalyze={() => void runAnalysis(caseId, evidence, memo, setAnalyzing, setAnalysis, setFacts, setQuestionAnswerDrafts, setAnalysisRequired, refreshConnectedData)} />}
+        {step === 4 && <QuestionsStep analysis={analysis} answers={questionAnswerDrafts} questions={questions} onAnswer={(id, answer) => void saveAnswer(id, answer, setQuestionAnswerDrafts)} onAnswerChange={updateQuestionAnswerDraft} />}
         {step === 5 && <ConfirmStep evidence={evidence} facts={analysisRequired ? [] : facts} memo={memo} />}
       </ScrollView>
       <View style={styles.bottomBar}>
@@ -378,12 +386,16 @@ function AnalysisStep({
 
 function QuestionsStep({
   analysis,
+  answers,
   questions: remoteQuestions,
   onAnswer,
+  onAnswerChange,
 }: {
   analysis: AnalysisResult | null;
+  answers: Record<string, string>;
   questions: RemoteQuestion[];
   onAnswer: (id: string, answer: string) => void;
+  onAnswerChange: (id: string, answer: string) => void;
 }) {
   const questions = remoteQuestions.length ? remoteQuestions.slice(0, 4) : (analysis?.questions.slice(0, 4) ?? []);
   return (
@@ -395,10 +407,11 @@ function QuestionsStep({
           <Text style={styles.questionCount}>질문 {index + 1}/{questions.length}</Text>
           <Text style={styles.cardTitle}>{question.prompt}</Text>
           <TextInput
-            defaultValue={question.answer ?? ''}
+            onChangeText={(answer) => onAnswerChange(question.id, answer)}
             onEndEditing={(event) => onAnswer(question.id, event.nativeEvent.text)}
             placeholder="기억나는 만큼 적어 주세요."
             style={styles.input}
+            value={answers[question.id] ?? question.answer ?? ''}
           />
         </View>
       )) : <View style={styles.card}><Text style={styles.body}>먼저 분석 단계에서 기록 정리를 시작해 주세요.</Text></View>}
@@ -512,10 +525,12 @@ async function runAnalysis(
   setAnalyzing: (value: boolean) => void,
   setAnalysis: (value: AnalysisResult) => void,
   setFacts: (facts: RemoteFact[]) => void,
+  setQuestionAnswerDrafts: (drafts: Record<string, string>) => void,
   setAnalysisRequired: (value: boolean) => void,
   refreshConnectedData: (activeCaseId: string) => Promise<unknown>,
 ) {
   setAnalyzing(true);
+  setQuestionAnswerDrafts({});
   if (studentApi.connected) {
     try {
       await studentApi.analyzeCase(caseId, memo);
@@ -592,17 +607,14 @@ async function login(
 async function saveAnswer(
   id: string,
   answer: string,
-  questions: RemoteQuestion[],
-  setQuestions: (questions: RemoteQuestion[]) => void,
+  setQuestionAnswerDrafts: (update: (current: Record<string, string>) => Record<string, string>) => void,
 ) {
+  const normalized = answer.trim();
+  setQuestionAnswerDrafts((current) => ({ ...current, [id]: normalized }));
   if (!studentApi.connected) return;
-  setQuestions(questions.map((question) => (
-    question.id === id ? { ...question, answer, resolved: Boolean(answer.trim()) } : question
-  )));
   try {
-    await studentApi.answerQuestion(id, answer);
+    await studentApi.answerQuestion(id, normalized);
   } catch (error) {
-    setQuestions(questions);
     Alert.alert('답변 저장 확인', error instanceof Error ? error.message : '답변을 저장할 수 없습니다.');
   }
 }
