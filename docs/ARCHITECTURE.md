@@ -58,6 +58,7 @@ flowchart LR
 - `_shared/openai.ts`는 기본적으로 공식 `https://api.openai.com`을 사용한다. `OPENAI_API_BASE_URL`은 로컬 Edge 단위 테스트에서만 stub endpoint를 주입하기 위한 서버 전용 경계이며 hosted deploy 템플릿에는 넣지 않는다.
 - `SecureDraftStore`는 `draftChunks.ts`의 순수 직렬화 계층을 사용한다. UTF-8 바이트 기준으로 작은 청크를 만들고, 읽을 때 메모 `1000자`, 단계 `0..5`, 유효 날짜, 최대 `16`개 청크를 검증하며 손상된 청크를 삭제한다.
 - `.github/workflows/verify.yml`은 PowerShell 기반 readiness 스크립트를 실행하므로 `windows-latest` runner를 사용한다. CI는 단위 테스트, 타입 검사, 웹 빌드, 배포 readiness, Expo Doctor, Android export를 반복한다.
+- readiness의 줄 단위 정규식은 GitHub Windows checkout의 `CRLF`와 로컬 `LF`를 모두 허용한다. 로컬 파일 줄바꿈 차이가 clean checkout 실패를 가리지 않게 분리 worktree에서 재현한다.
 - 모바일 화면은 SecureStore 자동 저장·복구를 best-effort 보조 경계로 다룬다. 서버 제출 성공 뒤 로컬 청크 삭제 실패는 제출 상태를 되돌리지 않는다.
 - 모바일 다중 파일 등록은 파일별로 실패를 격리한다. 한 파일의 Storage PUT 또는 처리 접수 실패가 뒤 파일 업로드를 중단하지 않으며 실패 개수만 안내한다.
 - 삭제 요청 버튼은 영향 안내 확인창을 거쳐 실행하고 중복 요청을 막기 위해 요청 중 상태를 잠근다.

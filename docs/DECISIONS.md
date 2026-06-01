@@ -296,6 +296,12 @@
 - 분석 실행 중에는 재분석 버튼을, 제출 실행 중에는 제출 버튼을 잠가 연속 탭이 중복 요청으로 이어지지 않게 한다.
 - 공용 기본 버튼의 확장 스타일은 하단 단계 내비게이션에서만 적용한다. 로그인 카드와 제출 완료 화면의 버튼은 세로 공간을 임의로 채우지 않는다.
 
+### Readiness accepts Windows checkout line endings
+
+- Windows GitHub Actions checkout은 텍스트 파일을 `CRLF`로 materialize할 수 있다.
+- 줄 전체를 검사하는 PowerShell 정규식은 선택적인 `\r`을 허용해 로컬 `LF`와 CI `CRLF`를 같은 계약으로 처리한다.
+- CI에서만 발생하는 readiness 실패는 분리 Git worktree의 clean checkout으로 재현한다.
+
 ### Pin local Supabase CLI and prefer modern API keys
 
 - Supabase CLI는 루트 devDependency의 정확한 버전으로 고정한다. CLI 버전이 달라지면 DB 초기 스키마와 Realtime·Storage 이미지가 함께 달라질 수 있다.

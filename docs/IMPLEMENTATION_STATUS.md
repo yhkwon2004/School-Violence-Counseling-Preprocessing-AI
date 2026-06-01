@@ -126,3 +126,4 @@
 - 기관 관리자 전용 보관 정책 메뉴와 활성 기관 ID 기준 snapshot 선택
 - 연결 없는 증거에 임의 진술 번호를 만들지 않는 웹 순수 유틸리티 테스트
 - FactBlock 준비 전 분석 단계 이동 차단, 분석·제출 중 버튼 잠금, 하단 내비게이션 전용 기본 버튼 확장 스타일
+- GitHub Windows clean checkout의 `CRLF`에서도 Expo 생성 타입 파일 ignore 계약을 통과하는 readiness 정규식

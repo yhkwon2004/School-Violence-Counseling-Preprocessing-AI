@@ -76,7 +76,7 @@ Assert-True ($eas.build.production.android.buildType -eq 'app-bundle') 'EAS prod
 Assert-True ($package.scripts.'dev:mobile'.EndsWith('--')) 'Mobile dev script must forward Expo CLI options after the npm delimiter'
 Assert-True ($package.scripts.'dev:web'.EndsWith('--')) 'Web dev script must forward Vite CLI options after the npm delimiter'
 Assert-True ($package.devDependencies.supabase -eq '2.103.0') 'Supabase CLI must stay pinned to 2.103.0'
-Assert-True ($mobileIgnore -match '(?m)^expo-env\.d\.ts$') 'Expo-generated type references must stay out of git'
+Assert-True ($mobileIgnore -match '(?m)^expo-env\.d\.ts\r?$') 'Expo-generated type references must stay out of git'
 Write-Output 'eas_config=ok'
 
 $vercel = Read-WorkspaceFile 'apps/web/vercel.json' | ConvertFrom-Json
