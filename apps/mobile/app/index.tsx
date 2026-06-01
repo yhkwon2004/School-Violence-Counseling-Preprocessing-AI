@@ -28,6 +28,7 @@ import {
 import {
   shouldRequireAnalysisAfterRestore,
   shouldShowLockedStudentCase,
+  shouldBlockAnalysisStepAdvance,
   studentSubmitBlockReason,
 } from '../src/studentFlow';
 
@@ -68,6 +69,7 @@ export default function StudentWizard() {
   const [loginError, setLoginError] = useState('');
   const [busy, setBusy] = useState(false);
   const [uploadingEvidence, setUploadingEvidence] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   const refreshConnectedData = useCallback(async (activeCaseId: string) => {
     if (!studentApi.connected || activeCaseId === DEMO_CASE_ID) return { factCount: 0 };
@@ -179,6 +181,10 @@ export default function StudentWizard() {
     () => studentSubmitBlockReason(analysisRequired, facts.length, evidence.map((asset) => asset.processingStatus)),
     [analysisRequired, evidence, facts.length],
   );
+  const analysisStepAdvanceBlocked = useMemo(
+    () => shouldBlockAnalysisStepAdvance(analysisRequired, analyzing, facts.length),
+    [analysisRequired, analyzing, facts.length],
+  );
 
   const updateMemo = useCallback((value: string) => {
     setMemo(value);
@@ -269,11 +275,12 @@ export default function StudentWizard() {
       <View style={styles.bottomBar}>
         {step > 0 && <SecondaryButton label="이전" onPress={() => setStep((current) => current - 1)} />}
         <PrimaryButton
-          disabled={step === stages.length - 1 && submitBlockReason !== null}
-          label={step === stages.length - 1 && submitBlockReason === 'evidence_processing' ? '증거 처리를 기다리고 있어요' : step === stages.length - 1 && submitBlockReason === 'analysis_required' ? '기록 정리가 필요해요' : step === stages.length - 1 ? '확인 후 제출' : '다음'}
+          disabled={(step === 3 && analysisStepAdvanceBlocked) || (step === stages.length - 1 && (submitBlockReason !== null || submitting))}
+          grow
+          label={submitting ? '안전하게 제출하고 있어요' : step === 3 && analyzing ? '기록을 정리하고 있어요' : step === 3 && analysisStepAdvanceBlocked ? '기록 정리를 먼저 완료해 주세요' : step === stages.length - 1 && submitBlockReason === 'evidence_processing' ? '증거 처리를 기다리고 있어요' : step === stages.length - 1 && submitBlockReason === 'analysis_required' ? '기록 정리가 필요해요' : step === stages.length - 1 ? '확인 후 제출' : '다음'}
           onPress={() => {
             if (step === stages.length - 1) {
-              void submitCase(caseId, memo, setSubmitted);
+              void submitCase(caseId, memo, setSubmitting, setSubmitted);
               return;
             }
             setStep((current) => Math.min(current + 1, stages.length - 1));
@@ -323,7 +330,7 @@ function EvidenceStep({ evidence, onPick, uploading }: { evidence: LocalEvidence
     <View>
       <Text style={styles.title}>관련 자료를 연결해 주세요.</Text>
       <Text style={styles.body}>채팅 캡처, 사진, PDF, 녹취, 영상, 문서를 등록할 수 있습니다. 파일은 오프라인 초안에 복제하지 않습니다.</Text>
-      <Pressable disabled={uploading} onPress={onPick} style={[styles.uploadBox, uploading && styles.disabledButton]}>
+      <Pressable accessibilityRole="button" accessibilityState={{ disabled: uploading }} disabled={uploading} onPress={onPick} style={[styles.uploadBox, uploading && styles.disabledButton]}>
         {uploading ? <ActivityIndicator color="#3976c3" /> : <Text style={styles.uploadPlus}>＋</Text>}
         <Text style={styles.cardTitle}>{uploading ? '파일을 안전하게 등록하고 있어요.' : '증거 파일 추가'}</Text>
         <Text style={styles.caption}>파일당 50MB · 사건당 50개</Text>
@@ -360,7 +367,7 @@ function AnalysisStep({
         <Text style={[styles.caption, styles.centerText]}>실제 학생 자료는 외부 AI로 전송하지 않습니다.</Text>
         {pending ? <Text style={[styles.caption, styles.centerText]}>파일 처리 대기 {pending}개 · 완료되는 순서대로 반영합니다.</Text> : null}
       </View>
-      <PrimaryButton label={analysis ? '다시 정리하기' : '기록 정리 시작'} onPress={onAnalyze} />
+      <PrimaryButton disabled={analyzing} label={analyzing ? '기록을 정리하고 있어요' : analysis ? '다시 정리하기' : '기록 정리 시작'} onPress={onAnalyze} />
     </View>
   );
 }
@@ -631,13 +638,21 @@ async function startNewCase(
   }
 }
 
-async function submitCase(caseId: string, memo: string, setSubmitted: (value: boolean) => void) {
+async function submitCase(
+  caseId: string,
+  memo: string,
+  setSubmitting: (value: boolean) => void,
+  setSubmitted: (value: boolean) => void,
+) {
+  setSubmitting(true);
   try {
     if (studentApi.connected) await studentApi.submit(caseId, memo);
     await draftStore.clear(caseId).catch(() => undefined);
     setSubmitted(true);
   } catch (error) {
     Alert.alert('제출 확인', error instanceof Error ? error.message : '기록을 제출할 수 없습니다.');
+  } finally {
+    setSubmitting(false);
   }
 }
 
@@ -731,12 +746,12 @@ function fileBadgeStyle(status: ProcessingStatus | undefined) {
   return styles.fileBadgeCompleted;
 }
 
-function PrimaryButton({ disabled = false, label, onPress }: { disabled?: boolean; label: string; onPress: () => void }) {
-  return <Pressable disabled={disabled} onPress={onPress} style={[styles.primaryButton, disabled && styles.disabledButton]}><Text style={styles.primaryText}>{label}</Text></Pressable>;
+function PrimaryButton({ disabled = false, grow = false, label, onPress }: { disabled?: boolean; grow?: boolean; label: string; onPress: () => void }) {
+  return <Pressable accessibilityRole="button" accessibilityState={{ disabled }} disabled={disabled} onPress={onPress} style={[styles.primaryButton, grow && styles.growButton, disabled && styles.disabledButton]}><Text style={styles.primaryText}>{label}</Text></Pressable>;
 }
 
 function SecondaryButton({ disabled = false, label, onPress }: { disabled?: boolean; label: string; onPress: () => void }) {
-  return <Pressable disabled={disabled} onPress={onPress} style={[styles.secondaryButton, disabled && styles.disabledButton]}><Text style={styles.secondaryText}>{label}</Text></Pressable>;
+  return <Pressable accessibilityRole="button" accessibilityState={{ disabled }} disabled={disabled} onPress={onPress} style={[styles.secondaryButton, disabled && styles.disabledButton]}><Text style={styles.secondaryText}>{label}</Text></Pressable>;
 }
 
 const styles = StyleSheet.create({
@@ -767,7 +782,8 @@ const styles = StyleSheet.create({
   listText: { color: '#53657b', fontSize: 14, lineHeight: 22 },
   input: { minHeight: 45, borderWidth: 1, borderColor: '#d6e0eb', borderRadius: 11, backgroundColor: '#fff', paddingHorizontal: 12, paddingVertical: 10, color: '#263950', fontSize: 15 },
   memoInput: { minHeight: 230, marginTop: 8 },
-  primaryButton: { minHeight: 51, flex: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 13, backgroundColor: '#073b78', paddingHorizontal: 16 },
+  primaryButton: { minHeight: 51, alignItems: 'center', justifyContent: 'center', borderRadius: 13, backgroundColor: '#073b78', paddingHorizontal: 16 },
+  growButton: { flex: 1 },
   primaryText: { color: '#fff', fontSize: 15, fontWeight: '900' },
   secondaryButton: { minHeight: 51, minWidth: 90, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#ccd8e8', borderRadius: 13, backgroundColor: '#fff', paddingHorizontal: 16 },
   secondaryText: { color: '#073b78', fontSize: 15, fontWeight: '900' },

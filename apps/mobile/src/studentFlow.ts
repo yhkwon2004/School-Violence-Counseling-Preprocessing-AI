@@ -27,3 +27,11 @@ export function studentSubmitBlockReason(
   if (evidenceStatuses.some((status) => status === 'queued' || status === 'processing')) return 'evidence_processing';
   return null;
 }
+
+export function shouldBlockAnalysisStepAdvance(
+  analysisRequired: boolean,
+  analyzing: boolean,
+  factCount: number,
+) {
+  return analyzing || analysisRequired || factCount === 0;
+}

@@ -30,7 +30,7 @@ npm.cmd run verify:mobile:lan
 | 항목 | 결과 | 기록 |
 | --- | --- | --- |
 | Expo Doctor | 통과 | `18/18` |
-| Android Metro export | 통과 | Hermes bundle `3.11 MB` |
+| Android Metro export | 통과 | Hermes bundle `3.12 MB` |
 | LAN Supabase Auth health | 통과 | `mobile_supabase_lan=ok` |
 | Metro LAN status | 통과 | `expo_metro_lan=ok` |
 | 공개 앱 키 경계 | 통과 | 로컬 `.env.local`은 `sb_publishable_` key를 사용하고 secret key를 포함하지 않음 |
@@ -46,7 +46,7 @@ npm.cmd run verify:mobile:lan
 | 5 | Realtime 또는 polling fallback으로 처리 상태 갱신 | 미검증 |  |
 | 6 | 증거 대기·처리 중 확인 화면의 제출 버튼 잠금 | 미검증 |  |
 | 7 | 누락 질문 답변 저장과 FactBlock 후보 확인 | 미검증 |  |
-| 8 | 학생 확인 뒤 제출 | 미검증 |  |
+| 8 | 분석 중 다음 이동·재분석 연속 탭 차단, 학생 확인 뒤 제출 중 버튼 잠금 | 미검증 |  |
 | 9 | 제출 후 기록 잠금 확인 | 미검증 |  |
 | 10 | 앱을 다시 열어 제출 사건 잠금 화면 복원 | 미검증 |  |
 | 11 | 상담자 웹 재개방 뒤 앱의 확인 버튼으로 학생 수정 가능 확인 | 미검증 |  |

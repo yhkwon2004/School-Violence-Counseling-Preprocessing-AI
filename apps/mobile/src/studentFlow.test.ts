@@ -3,6 +3,7 @@ import {
   isStudentCaseEditable,
   shouldRequireAnalysisAfterRestore,
   shouldShowLockedStudentCase,
+  shouldBlockAnalysisStepAdvance,
   studentSubmitBlockReason,
 } from './studentFlow';
 
@@ -33,5 +34,12 @@ describe('studentFlow', () => {
     expect(studentSubmitBlockReason(false, 1, ['queued'])).toBe('evidence_processing');
     expect(studentSubmitBlockReason(false, 1, ['processing'])).toBe('evidence_processing');
     expect(studentSubmitBlockReason(false, 1, ['completed', 'manual_review', 'failed'])).toBe(null);
+  });
+
+  it('keeps the analysis step in place until FactBlock candidates are ready', () => {
+    expect(shouldBlockAnalysisStepAdvance(true, false, 1)).toBe(true);
+    expect(shouldBlockAnalysisStepAdvance(false, true, 1)).toBe(true);
+    expect(shouldBlockAnalysisStepAdvance(false, false, 0)).toBe(true);
+    expect(shouldBlockAnalysisStepAdvance(false, false, 1)).toBe(false);
   });
 });

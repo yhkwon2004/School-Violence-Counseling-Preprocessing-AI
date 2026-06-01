@@ -290,6 +290,12 @@
 - 플랫폼 관리자는 기관 수명주기를 운영하지만 대상 기관 선택 UI가 없는 상태에서는 보관 정책을 저장하지 않는다.
 - 연결 snapshot은 로그인 사용자의 기관 ID와 일치하는 `institution_settings` 행만 화면 상태로 사용한다.
 
+### Mobile action feedback stays local to the active step
+
+- FactBlock 후보가 없거나 메모 재분석이 필요한 동안 분석 단계의 다음 버튼을 잠근다.
+- 분석 실행 중에는 재분석 버튼을, 제출 실행 중에는 제출 버튼을 잠가 연속 탭이 중복 요청으로 이어지지 않게 한다.
+- 공용 기본 버튼의 확장 스타일은 하단 단계 내비게이션에서만 적용한다. 로그인 카드와 제출 완료 화면의 버튼은 세로 공간을 임의로 채우지 않는다.
+
 ### Pin local Supabase CLI and prefer modern API keys
 
 - Supabase CLI는 루트 devDependency의 정확한 버전으로 고정한다. CLI 버전이 달라지면 DB 초기 스키마와 Realtime·Storage 이미지가 함께 달라질 수 있다.
