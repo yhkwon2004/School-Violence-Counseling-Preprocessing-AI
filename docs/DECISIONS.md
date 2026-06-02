@@ -303,6 +303,8 @@
 - 질문 입력은 제어형 로컬 초안으로 즉시 화면에 반영한다.
 - polling으로 서버 질문 목록을 다시 읽어도 같은 질문의 작성 중 답변은 보존하고 새 질문만 서버 답변으로 초기화한다.
 - 입력 종료 시 연결 서버에 답변을 저장한다. 저장 오류가 발생해도 학생이 입력한 문장을 화면에서 지우지 않고 재시도를 안내한다.
+- 질문 카드 안에 저장 중·저장 완료·실패 상태를 표시하고, 실패 상태에는 명시적인 다시 시도 버튼을 제공한다.
+- 입력 변경과 저장 시작마다 질문별 저장 요청 버전을 올린다. 늦게 끝난 이전 요청의 성공·실패가 최신 문장의 저장 상태를 덮어쓰지 않게 한다.
 - 메모 재분석을 시작하면 이전 질문 초안을 비워 새 FactBlock 질문에 오래된 답변을 재사용하지 않는다.
 
 ### Readiness accepts Windows checkout line endings
@@ -317,3 +319,4 @@
 - 로컬 공개 env 생성과 통합 검증은 `PUBLISHABLE_KEY`를 먼저 사용하고 구형 CLI에서만 `ANON_KEY`로 fallback한다.
 - 서버 권한 검증은 `SECRET_KEY`를 먼저 사용하고 구형 CLI에서만 `SERVICE_ROLE_KEY`로 fallback한다.
 - `db reset` 뒤 기존 서비스 컨테이너와 새 DB 스키마가 섞여 Realtime subscription 등록이 실패하면 `npm.cmd run supabase:stop`, `npm.cmd run supabase:start`로 전체 로컬 스택을 다시 구성한다.
+- `verify:local`은 `db reset` 직후 Auth와 Edge HTTP readiness를 기다리고 학생 로그인 Edge 호출을 제한된 횟수로 재시도한다. 컨테이너 내부 DNS가 안정화되는 짧은 구간을 제품 실패로 오인하지 않게 한다.

@@ -113,6 +113,7 @@
 - 제출 사건 잠금 복원·재개방·새 기록 분기와 복구 초안 재분석 잠금을 분리한 모바일 상태 정책 테스트
 - 동일 메모 단계 복구와 최신 기기 메모 복원을 유지하면서 오래된 SecureStore 메모의 서버 덮어쓰기를 막는 시간 비교 정책
 - polling 갱신 중에도 작성 중 누락 질문 답변을 유지하고 사라진 질문 초안을 정리하는 모바일 로컬 답변 병합 정책
+- 질문별 저장 상태와 카드 내 재시도 버튼, 늦게 완료된 이전 요청 결과를 무시하는 모바일 저장 버전 경계
 - 업로드 정리와 처리 접수가 같은 증거 행 잠금을 공유하고 중복 처리 요청을 한 durable 작업으로 병합하는 DB 예약 경계
 - 실패 작업과 `10분` 넘게 멈춘 `queued`·`processing` 작업을 `for update skip locked`로 회수하는 원자적 재시도 예약
 - 대기·처리 중 증거가 남은 사건 제출을 모바일 정책과 DB RPC에서 함께 차단
@@ -120,6 +121,7 @@
 - purge claim·해제·완료 RPC와 `purge_started_at` lease를 사용한 동시 cron 병합 및 트랜잭션 완료
 - Supabase CLI `2.103.0` 정확 버전 고정, 로컬 공개 `PUBLISHABLE_KEY` 우선 선택, 서버 `SECRET_KEY` 우선 선택과 legacy key fallback
 - `db reset` 뒤 구형 Realtime 컨테이너가 남는 혼합 스택을 `supabase:stop`·`supabase:start`로 재구성하는 복구 절차
+- `db reset` 직후 Auth·Edge readiness 대기와 Edge 내부 DNS 안정화 구간의 제한된 학생 로그인 재시도
 - 고정 CLI 스택에서 Realtime subscription 등록, publishable key LAN·웹 공개 env 생성, purge lease 포함 전체 `verify:local` 재검증
 - 연결 웹 snapshot의 `fact_block_evidence` 복원과 저장된 FactBlock 연결만 표시하는 증거맵
 - 상담자 선택 사건 코드·소속 기관 동적 표시, 활성 배정 사건에 한정한 검토·재개방·완료 액션

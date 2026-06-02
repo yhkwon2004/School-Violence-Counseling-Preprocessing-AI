@@ -25,6 +25,36 @@ function Reset-Database {
   if ($LASTEXITCODE -ne 0) {
     throw 'supabase db reset failed'
   }
+  Wait-LocalServices
+}
+
+function Wait-LocalServices {
+  for ($attempt = 0; $attempt -lt 30; $attempt++) {
+    try {
+      $authHealth = Invoke-WebRequest -Uri 'http://127.0.0.1:54321/auth/v1/health' -UseBasicParsing -TimeoutSec 5
+      $edgeOptions = Invoke-WebRequest -Method Options -Uri 'http://127.0.0.1:54321/functions/v1/student-login' -UseBasicParsing -TimeoutSec 5
+      if ([int]$authHealth.StatusCode -eq 200 -and [int]$edgeOptions.StatusCode -in @(200, 204)) {
+        return
+      }
+    } catch {
+      # Containers can briefly accept gateway traffic before Auth and Edge DNS settle.
+    }
+    Start-Sleep -Seconds 2
+  }
+  throw 'local Supabase Auth and Edge services did not become ready after database reset'
+}
+
+function Invoke-StudentLogin([string]$Body) {
+  $lastError = $null
+  for ($attempt = 0; $attempt -lt 15; $attempt++) {
+    try {
+      return Invoke-RestMethod -Method Post -Uri 'http://127.0.0.1:54321/functions/v1/student-login' -ContentType 'application/json' -Body $Body
+    } catch {
+      $lastError = $_
+      Start-Sleep -Seconds 2
+    }
+  }
+  throw $lastError
 }
 
 function Get-StatusValue([string[]]$Names) {
@@ -103,7 +133,7 @@ try {
   Write-Output 'synthetic_seed_password_rotation=ok'
 
   $loginBody = @{ loginId = 'WEE-24-0510'; password = 'demo1234' } | ConvertTo-Json
-  $login = Invoke-RestMethod -Method Post -Uri 'http://127.0.0.1:54321/functions/v1/student-login' -ContentType 'application/json' -Body $loginBody
+  $login = Invoke-StudentLogin $loginBody
   if (-not $login.session.access_token) {
     throw 'student session was not issued'
   }

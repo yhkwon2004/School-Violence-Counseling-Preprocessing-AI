@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -27,11 +27,15 @@ import {
 } from '../src/studentApi';
 import {
   mergeQuestionAnswerDrafts,
+  nextQuestionSaveVersion,
+  retainQuestionValues,
+  shouldApplyQuestionSaveResult,
   shouldRequireAnalysisAfterRestore,
   shouldRestoreDeviceDraft,
   shouldShowLockedStudentCase,
   shouldBlockAnalysisStepAdvance,
   studentSubmitBlockReason,
+  type QuestionSaveStatus,
 } from '../src/studentFlow';
 
 const draftStore = new SecureDraftStore();
@@ -61,6 +65,8 @@ export default function StudentWizard() {
   const [evidence, setEvidence] = useState<LocalEvidence[]>([]);
   const [questions, setQuestions] = useState<RemoteQuestion[]>([]);
   const [questionAnswerDrafts, setQuestionAnswerDrafts] = useState<Record<string, string>>({});
+  const [questionSaveStatuses, setQuestionSaveStatuses] = useState<Record<string, QuestionSaveStatus>>({});
+  const questionSaveVersions = useRef<Record<string, number>>({});
   const [facts, setFacts] = useState<RemoteFact[]>([]);
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [analysisRequired, setAnalysisRequired] = useState(false);
@@ -73,6 +79,12 @@ export default function StudentWizard() {
   const [busy, setBusy] = useState(false);
   const [uploadingEvidence, setUploadingEvidence] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  const resetQuestionAnswers = useCallback(() => {
+    questionSaveVersions.current = {};
+    setQuestionAnswerDrafts({});
+    setQuestionSaveStatuses({});
+  }, []);
 
   const refreshConnectedData = useCallback(async (activeCaseId: string) => {
     if (!studentApi.connected || activeCaseId === DEMO_CASE_ID) return { factCount: 0 };
@@ -91,6 +103,8 @@ export default function StudentWizard() {
     })));
     setQuestions(remoteQuestions);
     setQuestionAnswerDrafts((current) => mergeQuestionAnswerDrafts(current, remoteQuestions));
+    setQuestionSaveStatuses((current) => retainQuestionValues(current, remoteQuestions));
+    questionSaveVersions.current = retainQuestionValues(questionSaveVersions.current, remoteQuestions);
     setFacts(remoteFacts);
     return { factCount: remoteFacts.length };
   }, []);
@@ -103,7 +117,7 @@ export default function StudentWizard() {
     setStep(0);
     setEvidence([]);
     setQuestions([]);
-    setQuestionAnswerDrafts({});
+    resetQuestionAnswers();
     setFacts([]);
     setAnalysis(null);
     setAnalysisRequired(false);
@@ -128,7 +142,7 @@ export default function StudentWizard() {
     const { factCount } = await refreshConnectedData(record.id);
     setAnalysisRequired(shouldRequireAnalysisAfterRestore(record.memo, restoredMemo, factCount));
     setLoggedIn(true);
-  }, [refreshConnectedData]);
+  }, [refreshConnectedData, resetQuestionAnswers]);
 
   useEffect(() => {
     if (studentApi.connected) {
@@ -200,7 +214,26 @@ export default function StudentWizard() {
   }, []);
 
   const updateQuestionAnswerDraft = useCallback((id: string, answer: string) => {
+    questionSaveVersions.current[id] = nextQuestionSaveVersion(questionSaveVersions.current[id]);
     setQuestionAnswerDrafts((current) => ({ ...current, [id]: answer }));
+    setQuestionSaveStatuses((current) => {
+      if (!Object.prototype.hasOwnProperty.call(current, id)) return current;
+      const next = { ...current };
+      delete next[id];
+      return next;
+    });
+  }, []);
+
+  const beginQuestionSave = useCallback((id: string) => {
+    const version = nextQuestionSaveVersion(questionSaveVersions.current[id]);
+    questionSaveVersions.current[id] = version;
+    setQuestionSaveStatuses((current) => ({ ...current, [id]: 'saving' }));
+    return version;
+  }, []);
+
+  const finishQuestionSave = useCallback((id: string, version: number, status: QuestionSaveStatus) => {
+    if (!shouldApplyQuestionSaveResult(questionSaveVersions.current[id], version)) return;
+    setQuestionSaveStatuses((current) => ({ ...current, [id]: status }));
   }, []);
 
   if (!loggedIn) {
@@ -280,8 +313,8 @@ export default function StudentWizard() {
         {step === 0 && <SafetyStep />}
         {step === 1 && <MemoStep memo={memo} onChange={updateMemo} />}
         {step === 2 && <EvidenceStep evidence={evidence} onPick={() => void pickEvidence(caseId, evidence, setEvidence, setUploadingEvidence)} uploading={uploadingEvidence} />}
-        {step === 3 && <AnalysisStep analyzing={analyzing} analysis={analysis} evidence={evidence} onAnalyze={() => void runAnalysis(caseId, evidence, memo, setAnalyzing, setAnalysis, setFacts, setQuestionAnswerDrafts, setAnalysisRequired, refreshConnectedData)} />}
-        {step === 4 && <QuestionsStep analysis={analysis} answers={questionAnswerDrafts} questions={questions} onAnswer={(id, answer) => void saveAnswer(id, answer, setQuestionAnswerDrafts)} onAnswerChange={updateQuestionAnswerDraft} />}
+        {step === 3 && <AnalysisStep analyzing={analyzing} analysis={analysis} evidence={evidence} onAnalyze={() => void runAnalysis(caseId, evidence, memo, setAnalyzing, setAnalysis, setFacts, resetQuestionAnswers, setAnalysisRequired, refreshConnectedData)} />}
+        {step === 4 && <QuestionsStep analysis={analysis} answers={questionAnswerDrafts} connected={studentApi.connected} questions={questions} saveStatuses={questionSaveStatuses} onAnswer={(id, answer) => void saveAnswer(id, answer, setQuestionAnswerDrafts, beginQuestionSave, finishQuestionSave)} onAnswerChange={updateQuestionAnswerDraft} />}
         {step === 5 && <ConfirmStep evidence={evidence} facts={analysisRequired ? [] : facts} memo={memo} />}
       </ScrollView>
       <View style={styles.bottomBar}>
@@ -387,13 +420,17 @@ function AnalysisStep({
 function QuestionsStep({
   analysis,
   answers,
+  connected,
   questions: remoteQuestions,
+  saveStatuses,
   onAnswer,
   onAnswerChange,
 }: {
   analysis: AnalysisResult | null;
   answers: Record<string, string>;
+  connected: boolean;
   questions: RemoteQuestion[];
+  saveStatuses: Record<string, QuestionSaveStatus>;
   onAnswer: (id: string, answer: string) => void;
   onAnswerChange: (id: string, answer: string) => void;
 }) {
@@ -402,7 +439,10 @@ function QuestionsStep({
     <View>
       <Text style={styles.title}>몇 가지만 더 확인할게요.</Text>
       <Text style={styles.body}>답하기 어렵다면 넘어가도 괜찮아요. 상담자가 함께 확인할 수 있습니다.</Text>
-      {questions.length ? questions.map((question, index) => (
+      {questions.length ? questions.map((question, index) => {
+        const answer = answers[question.id] ?? question.answer ?? '';
+        const saveStatus = saveStatuses[question.id];
+        return (
         <View key={question.id} style={styles.card}>
           <Text style={styles.questionCount}>질문 {index + 1}/{questions.length}</Text>
           <Text style={styles.cardTitle}>{question.prompt}</Text>
@@ -411,10 +451,17 @@ function QuestionsStep({
             onEndEditing={(event) => onAnswer(question.id, event.nativeEvent.text)}
             placeholder="기억나는 만큼 적어 주세요."
             style={styles.input}
-            value={answers[question.id] ?? question.answer ?? ''}
+            value={answer}
           />
+          <Text style={saveStatus === 'error' ? styles.errorText : styles.caption}>{questionSaveStatusLabel(saveStatus, connected)}</Text>
+          {saveStatus === 'error' ? (
+            <Pressable accessibilityRole="button" onPress={() => onAnswer(question.id, answer)} style={styles.questionRetryButton}>
+              <Text style={styles.questionRetryText}>답변 저장 다시 시도</Text>
+            </Pressable>
+          ) : null}
         </View>
-      )) : <View style={styles.card}><Text style={styles.body}>먼저 분석 단계에서 기록 정리를 시작해 주세요.</Text></View>}
+        );
+      }) : <View style={styles.card}><Text style={styles.body}>먼저 분석 단계에서 기록 정리를 시작해 주세요.</Text></View>}
     </View>
   );
 }
@@ -525,12 +572,12 @@ async function runAnalysis(
   setAnalyzing: (value: boolean) => void,
   setAnalysis: (value: AnalysisResult) => void,
   setFacts: (facts: RemoteFact[]) => void,
-  setQuestionAnswerDrafts: (drafts: Record<string, string>) => void,
+  resetQuestionAnswers: () => void,
   setAnalysisRequired: (value: boolean) => void,
   refreshConnectedData: (activeCaseId: string) => Promise<unknown>,
 ) {
   setAnalyzing(true);
-  setQuestionAnswerDrafts({});
+  resetQuestionAnswers();
   if (studentApi.connected) {
     try {
       await studentApi.analyzeCase(caseId, memo);
@@ -608,14 +655,22 @@ async function saveAnswer(
   id: string,
   answer: string,
   setQuestionAnswerDrafts: (update: (current: Record<string, string>) => Record<string, string>) => void,
+  beginQuestionSave: (id: string) => number,
+  finishQuestionSave: (id: string, version: number, status: QuestionSaveStatus) => void,
 ) {
   const normalized = answer.trim();
   setQuestionAnswerDrafts((current) => ({ ...current, [id]: normalized }));
-  if (!studentApi.connected) return;
+  const version = beginQuestionSave(id);
+  if (!studentApi.connected) {
+    finishQuestionSave(id, version, 'saved');
+    return;
+  }
   try {
     await studentApi.answerQuestion(id, normalized);
+    finishQuestionSave(id, version, 'saved');
   } catch (error) {
-    Alert.alert('답변 저장 확인', error instanceof Error ? error.message : '답변을 저장할 수 없습니다.');
+    finishQuestionSave(id, version, 'error');
+    Alert.alert('답변 저장 확인', `${error instanceof Error ? error.message : '답변을 저장할 수 없습니다.'}\n카드의 다시 시도 버튼으로 저장을 재시도할 수 있습니다.`);
   }
 }
 
@@ -762,6 +817,14 @@ function fileBadgeStyle(status: ProcessingStatus | undefined) {
   return styles.fileBadgeCompleted;
 }
 
+function questionSaveStatusLabel(status: QuestionSaveStatus | undefined, connected: boolean) {
+  if (!connected) return '합성 데이터 데모 · 입력 내용은 현재 화면에 반영됩니다.';
+  if (status === 'saving') return '답변을 저장하고 있어요.';
+  if (status === 'saved') return '답변을 저장했어요.';
+  if (status === 'error') return '답변을 저장하지 못했습니다. 입력 내용은 이 화면에 남아 있어요.';
+  return '입력을 마친 뒤 자동으로 저장합니다.';
+}
+
 function PrimaryButton({ disabled = false, grow = false, label, onPress }: { disabled?: boolean; grow?: boolean; label: string; onPress: () => void }) {
   return <Pressable accessibilityRole="button" accessibilityState={{ disabled }} disabled={disabled} onPress={onPress} style={[styles.primaryButton, grow && styles.growButton, disabled && styles.disabledButton]}><Text style={styles.primaryText}>{label}</Text></Pressable>;
 }
@@ -817,6 +880,8 @@ const styles = StyleSheet.create({
   infoText: { color: '#2e609d', fontSize: 12, fontWeight: '700' },
   analysisIcon: { alignSelf: 'center', color: '#3976c3', fontSize: 34, fontWeight: '900' },
   questionCount: { color: '#3976c3', fontSize: 12, fontWeight: '900' },
+  questionRetryButton: { alignSelf: 'flex-start', borderWidth: 1, borderColor: '#efb7bf', borderRadius: 10, backgroundColor: '#fff8f9', paddingHorizontal: 11, paddingVertical: 8 },
+  questionRetryText: { color: '#a53342', fontSize: 12, fontWeight: '900' },
   errorText: { color: '#b23d4a', fontSize: 12, fontWeight: '700', lineHeight: 18 },
   disabledButton: { opacity: 0.62 },
   factRow: { gap: 3, borderTopWidth: 1, borderTopColor: '#e3e9f1', paddingTop: 9 },

@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   isStudentCaseEditable,
   mergeQuestionAnswerDrafts,
+  nextQuestionSaveVersion,
+  retainQuestionValues,
+  shouldApplyQuestionSaveResult,
   shouldRequireAnalysisAfterRestore,
   shouldRestoreDeviceDraft,
   shouldShowLockedStudentCase,
@@ -80,5 +83,25 @@ describe('studentFlow', () => {
       'question-1': '입력 중인 답변',
       'question-2': '새 서버 답변',
     });
+  });
+
+  it('retains save metadata for visible questions only', () => {
+    expect(retainQuestionValues({
+      'question-1': 'saved',
+      'removed-question': 'error',
+    }, [
+      { id: 'question-1' },
+      { id: 'question-2' },
+    ])).toEqual({
+      'question-1': 'saved',
+    });
+  });
+
+  it('applies only the latest question save result', () => {
+    expect(nextQuestionSaveVersion(undefined)).toBe(1);
+    expect(nextQuestionSaveVersion(2)).toBe(3);
+    expect(shouldApplyQuestionSaveResult(2, 1)).toBe(false);
+    expect(shouldApplyQuestionSaveResult(2, 2)).toBe(true);
+    expect(shouldApplyQuestionSaveResult(undefined, 1)).toBe(false);
   });
 });

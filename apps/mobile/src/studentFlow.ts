@@ -59,3 +59,28 @@ export function mergeQuestionAnswerDrafts(
     current[question.id] ?? question.answer ?? '',
   ]));
 }
+
+export type QuestionSaveStatus = 'saving' | 'saved' | 'error';
+
+export function retainQuestionValues<T>(
+  current: Record<string, T>,
+  questions: Array<{ id: string }>,
+) {
+  return questions.reduce<Record<string, T>>((retained, question) => {
+    if (Object.prototype.hasOwnProperty.call(current, question.id)) {
+      retained[question.id] = current[question.id];
+    }
+    return retained;
+  }, {});
+}
+
+export function shouldApplyQuestionSaveResult(
+  currentVersion: number | undefined,
+  completedVersion: number,
+) {
+  return currentVersion === completedVersion;
+}
+
+export function nextQuestionSaveVersion(currentVersion: number | undefined) {
+  return (currentVersion ?? 0) + 1;
+}
