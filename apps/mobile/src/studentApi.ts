@@ -1,6 +1,7 @@
 import * as SecureStore from 'expo-secure-store';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { EvidenceKind, ProcessingStatus } from '@ieumlog/domain';
+import { MemoUpdateQueue } from './memoUpdateQueue';
 
 const SESSION_KEY = 'ieumlog:student-session';
 
@@ -88,6 +89,7 @@ type FactRow = {
 
 export class StudentApiClient {
   readonly connected: boolean;
+  private readonly memoUpdates = new MemoUpdateQueue();
   private realtimeClient: SupabaseClient | null = null;
   private refreshPromise: Promise<boolean> | null = null;
 
@@ -170,9 +172,11 @@ export class StudentApiClient {
   }
 
   async updateMemo(caseId: string, memo: string): Promise<void> {
-    await this.rest(`/cases?id=eq.${caseId}`, {
-      method: 'PATCH',
-      body: JSON.stringify({ memo }),
+    await this.memoUpdates.enqueue(async () => {
+      await this.rest(`/cases?id=eq.${caseId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ memo }),
+      });
     });
   }
 
@@ -282,6 +286,7 @@ export class StudentApiClient {
   }
 
   async submit(caseId: string, memo: string): Promise<void> {
+    await this.memoUpdates.waitForIdle().catch(() => undefined);
     await this.edge('submit-case', { caseId, memo });
   }
 

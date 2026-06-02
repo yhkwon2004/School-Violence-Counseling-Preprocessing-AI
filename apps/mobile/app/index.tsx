@@ -20,6 +20,7 @@ import {
   type ProcessingStatus,
 } from '@ieumlog/domain';
 import { SecureDraftStore } from '../src/draftStore';
+import { MemoUpdateQueue } from '../src/memoUpdateQueue';
 import {
   StudentApiClient,
   type RemoteFact,
@@ -28,6 +29,7 @@ import {
 import {
   mergeQuestionAnswerDrafts,
   nextQuestionSaveVersion,
+  questionSaveBlockReason,
   retainQuestionValues,
   shouldApplyQuestionSaveResult,
   shouldRequireAnalysisAfterRestore,
@@ -39,6 +41,7 @@ import {
 } from '../src/studentFlow';
 
 const draftStore = new SecureDraftStore();
+const deviceDraftUpdates = new MemoUpdateQueue();
 const analyzer = new RuleBasedAnalyzer();
 const studentApi = new StudentApiClient();
 const DEMO_CASE_ID = 'mobile-draft';
@@ -79,6 +82,7 @@ export default function StudentWizard() {
   const [busy, setBusy] = useState(false);
   const [uploadingEvidence, setUploadingEvidence] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const submissionInFlight = useRef(false);
 
   const resetQuestionAnswers = useCallback(() => {
     questionSaveVersions.current = {};
@@ -137,7 +141,7 @@ export default function StudentWizard() {
       setStep(snapshot.step);
       setRestored(true);
     } else if (snapshot) {
-      await draftStore.clear(record.id).catch(() => undefined);
+      await deviceDraftUpdates.enqueue(() => draftStore.clear(record.id)).catch(() => undefined);
     }
     const { factCount } = await refreshConnectedData(record.id);
     setAnalysisRequired(shouldRequireAnalysisAfterRestore(record.memo, restoredMemo, factCount));
@@ -161,15 +165,16 @@ export default function StudentWizard() {
   }, [openConnectedCase]);
 
   useEffect(() => {
-    if (!loggedIn || submitted) return;
+    if (!loggedIn || submitted || submitting) return;
     const timeout = setTimeout(() => {
-      void draftStore.write(caseId, { memo, step, updatedAt: new Date().toISOString() }).catch(() => undefined);
+      if (submissionInFlight.current) return;
+      void deviceDraftUpdates.enqueue(() => draftStore.write(caseId, { memo, step, updatedAt: new Date().toISOString() })).catch(() => undefined);
       if (studentApi.connected && caseId !== DEMO_CASE_ID) {
         void studentApi.updateMemo(caseId, memo).catch(() => undefined);
       }
     }, 250);
     return () => clearTimeout(timeout);
-  }, [caseId, loggedIn, memo, step, submitted]);
+  }, [caseId, loggedIn, memo, step, submitted, submitting]);
 
   useEffect(() => {
     if (!loggedIn || !studentApi.connected || caseId === DEMO_CASE_ID) return;
@@ -216,12 +221,7 @@ export default function StudentWizard() {
   const updateQuestionAnswerDraft = useCallback((id: string, answer: string) => {
     questionSaveVersions.current[id] = nextQuestionSaveVersion(questionSaveVersions.current[id]);
     setQuestionAnswerDrafts((current) => ({ ...current, [id]: answer }));
-    setQuestionSaveStatuses((current) => {
-      if (!Object.prototype.hasOwnProperty.call(current, id)) return current;
-      const next = { ...current };
-      delete next[id];
-      return next;
-    });
+    setQuestionSaveStatuses((current) => ({ ...current, [id]: 'dirty' }));
   }, []);
 
   const beginQuestionSave = useCallback((id: string) => {
@@ -235,6 +235,22 @@ export default function StudentWizard() {
     if (!shouldApplyQuestionSaveResult(questionSaveVersions.current[id], version)) return;
     setQuestionSaveStatuses((current) => ({ ...current, [id]: status }));
   }, []);
+
+  const discardQuestionAnswerDraft = useCallback((id: string) => {
+    questionSaveVersions.current[id] = nextQuestionSaveVersion(questionSaveVersions.current[id]);
+    const serverAnswer = questions.find((question) => question.id === id)?.answer ?? '';
+    setQuestionAnswerDrafts((current) => ({ ...current, [id]: serverAnswer }));
+    setQuestionSaveStatuses((current) => {
+      const next = { ...current };
+      delete next[id];
+      return next;
+    });
+  }, [questions]);
+
+  const pendingQuestionSave = useMemo(
+    () => questionSaveBlockReason(questionSaveStatuses),
+    [questionSaveStatuses],
+  );
 
   if (!loggedIn) {
     return (
@@ -314,18 +330,18 @@ export default function StudentWizard() {
         {step === 1 && <MemoStep memo={memo} onChange={updateMemo} />}
         {step === 2 && <EvidenceStep evidence={evidence} onPick={() => void pickEvidence(caseId, evidence, setEvidence, setUploadingEvidence)} uploading={uploadingEvidence} />}
         {step === 3 && <AnalysisStep analyzing={analyzing} analysis={analysis} evidence={evidence} onAnalyze={() => void runAnalysis(caseId, evidence, memo, setAnalyzing, setAnalysis, setFacts, resetQuestionAnswers, setAnalysisRequired, refreshConnectedData)} />}
-        {step === 4 && <QuestionsStep analysis={analysis} answers={questionAnswerDrafts} connected={studentApi.connected} questions={questions} saveStatuses={questionSaveStatuses} onAnswer={(id, answer) => void saveAnswer(id, answer, setQuestionAnswerDrafts, beginQuestionSave, finishQuestionSave)} onAnswerChange={updateQuestionAnswerDraft} />}
+        {step === 4 && <QuestionsStep analysis={analysis} answers={questionAnswerDrafts} connected={studentApi.connected} questions={questions} saveStatuses={questionSaveStatuses} onAnswer={(id, answer) => void saveAnswer(id, answer, setQuestionAnswerDrafts, beginQuestionSave, finishQuestionSave)} onAnswerChange={updateQuestionAnswerDraft} onDiscard={discardQuestionAnswerDraft} />}
         {step === 5 && <ConfirmStep evidence={evidence} facts={analysisRequired ? [] : facts} memo={memo} />}
       </ScrollView>
       <View style={styles.bottomBar}>
         {step > 0 && <SecondaryButton label="이전" onPress={() => setStep((current) => current - 1)} />}
         <PrimaryButton
-          disabled={(step === 3 && analysisStepAdvanceBlocked) || (step === stages.length - 1 && (submitBlockReason !== null || submitting))}
+          disabled={(step === 3 && analysisStepAdvanceBlocked) || (step === 4 && pendingQuestionSave !== null) || (step === stages.length - 1 && (submitBlockReason !== null || pendingQuestionSave !== null || submitting))}
           grow
-          label={submitting ? '안전하게 제출하고 있어요' : step === 3 && analyzing ? '기록을 정리하고 있어요' : step === 3 && analysisStepAdvanceBlocked ? '기록 정리를 먼저 완료해 주세요' : step === stages.length - 1 && submitBlockReason === 'evidence_processing' ? '증거 처리를 기다리고 있어요' : step === stages.length - 1 && submitBlockReason === 'analysis_required' ? '기록 정리가 필요해요' : step === stages.length - 1 ? '확인 후 제출' : '다음'}
+          label={submitting ? '안전하게 제출하고 있어요' : step === 3 && analyzing ? '기록을 정리하고 있어요' : step === 3 && analysisStepAdvanceBlocked ? '기록 정리를 먼저 완료해 주세요' : step === 4 && pendingQuestionSave === 'dirty' ? '입력을 마쳐 저장해 주세요' : step === 4 && pendingQuestionSave === 'saving' ? '답변을 저장하고 있어요' : step === 4 && pendingQuestionSave === 'error' ? '답변 저장을 다시 확인해 주세요' : step === stages.length - 1 && submitBlockReason === 'evidence_processing' ? '증거 처리를 기다리고 있어요' : step === stages.length - 1 && submitBlockReason === 'analysis_required' ? '기록 정리가 필요해요' : step === stages.length - 1 && pendingQuestionSave ? '답변 저장을 확인해 주세요' : step === stages.length - 1 ? '확인 후 제출' : '다음'}
           onPress={() => {
             if (step === stages.length - 1) {
-              void submitCase(caseId, memo, setSubmitting, setSubmitted);
+              void submitCase(caseId, memo, submissionInFlight, setSubmitting, setSubmitted);
               return;
             }
             setStep((current) => Math.min(current + 1, stages.length - 1));
@@ -425,6 +441,7 @@ function QuestionsStep({
   saveStatuses,
   onAnswer,
   onAnswerChange,
+  onDiscard,
 }: {
   analysis: AnalysisResult | null;
   answers: Record<string, string>;
@@ -433,6 +450,7 @@ function QuestionsStep({
   saveStatuses: Record<string, QuestionSaveStatus>;
   onAnswer: (id: string, answer: string) => void;
   onAnswerChange: (id: string, answer: string) => void;
+  onDiscard: (id: string) => void;
 }) {
   const questions = remoteQuestions.length ? remoteQuestions.slice(0, 4) : (analysis?.questions.slice(0, 4) ?? []);
   return (
@@ -450,14 +468,21 @@ function QuestionsStep({
             onChangeText={(answer) => onAnswerChange(question.id, answer)}
             onEndEditing={(event) => onAnswer(question.id, event.nativeEvent.text)}
             placeholder="기억나는 만큼 적어 주세요."
+            returnKeyType="done"
             style={styles.input}
+            submitBehavior="blurAndSubmit"
             value={answer}
           />
           <Text style={saveStatus === 'error' ? styles.errorText : styles.caption}>{questionSaveStatusLabel(saveStatus, connected)}</Text>
           {saveStatus === 'error' ? (
-            <Pressable accessibilityRole="button" onPress={() => onAnswer(question.id, answer)} style={styles.questionRetryButton}>
-              <Text style={styles.questionRetryText}>답변 저장 다시 시도</Text>
-            </Pressable>
+            <View style={styles.questionActionRow}>
+              <Pressable accessibilityRole="button" onPress={() => onAnswer(question.id, answer)} style={styles.questionRetryButton}>
+                <Text style={styles.questionRetryText}>답변 저장 다시 시도</Text>
+              </Pressable>
+              <Pressable accessibilityRole="button" onPress={() => onDiscard(question.id)} style={styles.questionDiscardButton}>
+                <Text style={styles.questionDiscardText}>변경 내용 버리기</Text>
+              </Pressable>
+            </View>
           ) : null}
         </View>
         );
@@ -712,17 +737,21 @@ async function startNewCase(
 async function submitCase(
   caseId: string,
   memo: string,
+  submissionInFlight: { current: boolean },
   setSubmitting: (value: boolean) => void,
   setSubmitted: (value: boolean) => void,
 ) {
+  if (submissionInFlight.current) return;
+  submissionInFlight.current = true;
   setSubmitting(true);
   try {
     if (studentApi.connected) await studentApi.submit(caseId, memo);
-    await draftStore.clear(caseId).catch(() => undefined);
+    await deviceDraftUpdates.enqueue(() => draftStore.clear(caseId)).catch(() => undefined);
     setSubmitted(true);
   } catch (error) {
     Alert.alert('제출 확인', error instanceof Error ? error.message : '기록을 제출할 수 없습니다.');
   } finally {
+    submissionInFlight.current = false;
     setSubmitting(false);
   }
 }
@@ -819,6 +848,7 @@ function fileBadgeStyle(status: ProcessingStatus | undefined) {
 
 function questionSaveStatusLabel(status: QuestionSaveStatus | undefined, connected: boolean) {
   if (!connected) return '합성 데이터 데모 · 입력 내용은 현재 화면에 반영됩니다.';
+  if (status === 'dirty') return '입력을 마치면 답변을 저장합니다.';
   if (status === 'saving') return '답변을 저장하고 있어요.';
   if (status === 'saved') return '답변을 저장했어요.';
   if (status === 'error') return '답변을 저장하지 못했습니다. 입력 내용은 이 화면에 남아 있어요.';
@@ -882,6 +912,9 @@ const styles = StyleSheet.create({
   questionCount: { color: '#3976c3', fontSize: 12, fontWeight: '900' },
   questionRetryButton: { alignSelf: 'flex-start', borderWidth: 1, borderColor: '#efb7bf', borderRadius: 10, backgroundColor: '#fff8f9', paddingHorizontal: 11, paddingVertical: 8 },
   questionRetryText: { color: '#a53342', fontSize: 12, fontWeight: '900' },
+  questionActionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  questionDiscardButton: { alignSelf: 'flex-start', borderWidth: 1, borderColor: '#d7e0eb', borderRadius: 10, backgroundColor: '#f8fafc', paddingHorizontal: 11, paddingVertical: 8 },
+  questionDiscardText: { color: '#61738b', fontSize: 12, fontWeight: '900' },
   errorText: { color: '#b23d4a', fontSize: 12, fontWeight: '700', lineHeight: 18 },
   disabledButton: { opacity: 0.62 },
   factRow: { gap: 3, borderTopWidth: 1, borderTopColor: '#e3e9f1', paddingTop: 9 },

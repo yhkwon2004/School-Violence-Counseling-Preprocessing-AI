@@ -60,7 +60,19 @@ export function mergeQuestionAnswerDrafts(
   ]));
 }
 
-export type QuestionSaveStatus = 'saving' | 'saved' | 'error';
+export type QuestionSaveStatus = 'dirty' | 'saving' | 'saved' | 'error';
+
+export type QuestionSaveBlockReason = 'dirty' | 'saving' | 'error' | null;
+
+export function questionSaveBlockReason(
+  statuses: Record<string, QuestionSaveStatus>,
+): QuestionSaveBlockReason {
+  const values = Object.values(statuses);
+  if (values.includes('error')) return 'error';
+  if (values.includes('saving')) return 'saving';
+  if (values.includes('dirty')) return 'dirty';
+  return null;
+}
 
 export function retainQuestionValues<T>(
   current: Record<string, T>,

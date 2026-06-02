@@ -9,7 +9,7 @@
   "scripts": {
     "build": "npm run build --workspace @ieumlog/domain && npm run build --workspace @ieumlog/web",
     "test": "npm run test --workspace @ieumlog/domain && npm run test:mobile-core && npm run test:web-core && npm run test:edge",
-    "test:mobile-core": "vitest run apps/mobile/src/draftChunks.test.ts apps/mobile/src/studentFlow.test.ts",
+    "test:mobile-core": "vitest run apps/mobile/src/draftChunks.test.ts apps/mobile/src/memoUpdateQueue.test.ts apps/mobile/src/studentFlow.test.ts",
     "test:web-core": "vitest run apps/web/src/evidenceMap.test.ts",
     "test:edge": "vitest run supabase/functions/_shared/openai.test.ts",
     "typecheck": "npm run typecheck --workspaces --if-present",

@@ -3,6 +3,7 @@ import {
   isStudentCaseEditable,
   mergeQuestionAnswerDrafts,
   nextQuestionSaveVersion,
+  questionSaveBlockReason,
   retainQuestionValues,
   shouldApplyQuestionSaveResult,
   shouldRequireAnalysisAfterRestore,
@@ -103,5 +104,13 @@ describe('studentFlow', () => {
     expect(shouldApplyQuestionSaveResult(2, 1)).toBe(false);
     expect(shouldApplyQuestionSaveResult(2, 2)).toBe(true);
     expect(shouldApplyQuestionSaveResult(undefined, 1)).toBe(false);
+  });
+
+  it('blocks question step advance until edited answers are saved or discarded', () => {
+    expect(questionSaveBlockReason({})).toBe(null);
+    expect(questionSaveBlockReason({ 'question-1': 'saved' })).toBe(null);
+    expect(questionSaveBlockReason({ 'question-1': 'dirty' })).toBe('dirty');
+    expect(questionSaveBlockReason({ 'question-1': 'dirty', 'question-2': 'saving' })).toBe('saving');
+    expect(questionSaveBlockReason({ 'question-1': 'saving', 'question-2': 'error' })).toBe('error');
   });
 });
