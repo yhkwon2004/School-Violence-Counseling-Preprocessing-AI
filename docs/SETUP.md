@@ -117,6 +117,9 @@ Expo Go 검증 후 preview 빌드를 만든다.
 ```powershell
 npx.cmd eas login
 npx.cmd eas build --platform android --profile preview
+npm.cmd run verify:android:apk -- -ApkPath C:\path\to\ieumlog-preview.apk
 ```
+
+`verify:android:apk`는 Android SDK Build Tools `26.0.2+`의 `aapt2`를 사용한다. SDK가 기본 위치에 없다면 `-Aapt2Path`를 전달한다.
 
 전체 수동 확인 순서는 [DEPLOYMENT_CHECKLIST.md](DEPLOYMENT_CHECKLIST.md)를 따르고, Android Expo Go 결과는 [ANDROID_EXPO_GO_TEST_RECORD.md](ANDROID_EXPO_GO_TEST_RECORD.md)에 기록한다.

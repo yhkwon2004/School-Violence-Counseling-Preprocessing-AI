@@ -54,6 +54,22 @@ npm.cmd run verify:mobile:lan
 | 12 | 잠금 화면에서 명시적으로 새 기록 작성 가능 확인 | 미검증 |  |
 | 13 | 삭제 요청 영향 확인창에서 취소 후 유지, 확인 뒤 사건 즉시 숨김 | 미검증 |  |
 
+## EAS Preview APK native 검증
+
+Expo Go는 앱 JS 흐름을 확인하지만 EAS preview APK의 native manifest를 대신 증명하지 않는다. APK를 내려받은 뒤 다음 명령을 별도로 실행한다.
+
+```powershell
+npm.cmd run verify:android:apk -- -ApkPath C:\path\to\ieumlog-preview.apk
+```
+
+| 항목 | 결과 | 기록 |
+| --- | --- | --- |
+| Preview APK 경로 또는 EAS build URL | 미검증 |  |
+| 패키지 ID `kr.ieumlog.student` | 미검증 |  |
+| 앱 데이터 백업 비활성 | 미검증 |  |
+| 키보드 `adjustResize` | 미검증 |  |
+| `android.permission.RECORD_AUDIO` 부재 | 미검증 |  |
+
 ## 판정
 
 - 전체 결과: `미검증`

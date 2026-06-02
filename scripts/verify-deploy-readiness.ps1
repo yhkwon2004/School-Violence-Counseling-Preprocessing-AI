@@ -85,6 +85,13 @@ Assert-True ($package.devDependencies.supabase -eq '2.103.0') 'Supabase CLI must
 Assert-True ($mobileIgnore -match '(?m)^expo-env\.d\.ts\r?$') 'Expo-generated type references must stay out of git'
 Write-Output 'eas_config=ok'
 
+$verifyAndroidApk = Read-WorkspaceFile 'scripts/verify-android-apk.ps1'
+Assert-True ($package.scripts.'verify:android:apk'.Contains('verify-android-apk.ps1')) 'Android preview APK verification command is missing'
+foreach ($marker in @('aapt2 was not found', 'dump'', ''packagename', 'dump'', ''permissions', 'dump'', ''xmltree', 'android.permission.RECORD_AUDIO', 'allowBackup', 'windowSoftInputMode', 'android_apk_verified=')) {
+  Assert-True ($verifyAndroidApk.Contains($marker)) "Android preview APK verification is missing: $marker"
+}
+Write-Output 'android_apk_verification=ok'
+
 $studentWizard = Read-WorkspaceFile 'apps/mobile/app/index.tsx'
 $studentApiClient = Read-WorkspaceFile 'apps/mobile/src/studentApi.ts'
 $studentFlow = Read-WorkspaceFile 'apps/mobile/src/studentFlow.ts'

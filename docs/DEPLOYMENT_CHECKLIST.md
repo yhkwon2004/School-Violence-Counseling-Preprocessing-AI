@@ -104,6 +104,14 @@ npx.cmd eas login
 npx.cmd eas build --platform android --profile preview
 ```
 
+내려받은 preview APK의 native manifest를 Android SDK Build Tools `26.0.2+`의 `aapt2`로 확인한다.
+
+```powershell
+npm.cmd run verify:android:apk -- -ApkPath C:\path\to\ieumlog-preview.apk
+```
+
+검증기는 패키지 ID `kr.ieumlog.student`, 앱 데이터 백업 비활성, 키보드 `adjustResize`, `android.permission.RECORD_AUDIO` 부재를 확인한다. Android SDK가 기본 위치에 없다면 `-Aapt2Path C:\path\to\aapt2.exe`를 함께 전달한다.
+
 스토어 제출용 production 프로필은 Android App Bundle을 생성한다.
 
 ## 6. 운영 전 차단 조건

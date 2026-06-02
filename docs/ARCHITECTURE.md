@@ -76,6 +76,7 @@ flowchart LR
 - Android Expo Go 실기기 검증은 `docs/ANDROID_EXPO_GO_TEST_RECORD.md`에 기기 환경과 단계별 결과를 기록한다. 자동 LAN readiness와 사람이 확인하는 앱 상호작용 증거를 구분한다.
 - 모바일 로그인과 제출 완료 화면은 작은 화면에서도 스크롤 가능한 컨테이너를 사용한다. 작성 화면은 키보드 drag dismiss와 iOS `KeyboardAvoidingView`, Android `resize` 레이아웃을 조합한다.
 - Android 빌드는 `allowBackup=false`로 기기 백업을 끈다. Expo audio plugin은 녹음과 마이크 권한 요청을 비활성화한다. Expo Go 흐름에서는 화면 동작을 확인하고, native 설정은 EAS preview 빌드에서도 다시 확인한다.
+- `verify:android:apk`는 Android SDK Build Tools의 `aapt2 dump permissions`, `aapt2 dump xmltree`를 사용해 preview APK의 패키지 ID, 백업 비활성, 키보드 `adjustResize`, 녹음 권한 부재를 검사한다.
 - `current_profile_role()`, `current_institution_id()`, Edge Function의 `requireActiveProfile()`은 활성 프로필과 활성 기관을 함께 요구한다. 비활성화 전에 발급된 JWT가 남아 있어도 직원 RLS와 서비스 키 기반 Edge Function 우회를 막는다.
 - `admin-users`는 활성 기관에만 계정을 발급한다. `retry-failed-jobs`는 `attempts < 3`인 실패 작업과 `10분` 넘게 멈춘 작업만 원자적으로 다시 접수하며 통합 테스트가 중복 cron 병합, 중단 작업 회수, 상한 도달 작업의 정지를 확인한다.
 - FactBlock, 사람, 관계, 증거, FactBlock-증거 연결의 변경은 서비스 역할 처리 경로만 담당한다. 학생 질문 업데이트 RLS는 학생 본인 사건의 `student_review`·`reopened` 상태에만 열고, 상담자에게는 조회와 내부 메모 추가만 허용한다.
@@ -93,6 +94,9 @@ flowchart LR
 - [Expo SecureStore](https://docs.expo.dev/versions/v54.0.0/sdk/securestore/)
 - [Expo app config](https://docs.expo.dev/versions/latest/config/app/)
 - [Expo keyboard handling](https://docs.expo.dev/guides/keyboard-handling/)
+- [Android AAPT2](https://developer.android.com/tools/aapt2)
+- [Android application manifest](https://developer.android.com/guide/topics/manifest/application-element)
+- [Android activity manifest](https://developer.android.com/guide/topics/manifest/activity-element)
 - [Supabase Edge Functions](https://supabase.com/docs/guides/functions)
 - [Supabase Edge Function secrets](https://supabase.com/docs/guides/functions/secrets)
 - [Supabase cron Edge Functions](https://supabase.com/docs/guides/functions/schedule-functions)

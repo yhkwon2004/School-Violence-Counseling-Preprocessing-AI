@@ -114,6 +114,7 @@
 - 모바일 로그인·제출 완료 화면의 작은 화면 스크롤, 작성 화면 keyboard dismiss·회피, Android `resize` 키보드 레이아웃
 - 민감 학생 기록을 위한 Android 앱 데이터 백업 비활성화
 - Expo config readiness의 Android 백업·키보드 레이아웃·녹음·마이크 권한 비활성 계약
+- EAS preview APK의 native manifest 패키지 ID·백업 비활성·키보드 resize·녹음 권한 부재를 검사하는 `verify:android:apk`
 - 제출 사건 잠금 복원·재개방·새 기록 분기와 복구 초안 재분석 잠금을 분리한 모바일 상태 정책 테스트
 - 동일 메모 단계 복구와 최신 기기 메모 복원을 유지하면서 오래된 SecureStore 메모의 서버 덮어쓰기를 막는 시간 비교 정책
 - polling 갱신 중에도 작성 중 누락 질문 답변을 유지하고 사라진 질문 초안을 정리하는 모바일 로컬 답변 병합 정책

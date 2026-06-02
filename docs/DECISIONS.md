@@ -342,3 +342,9 @@
 - 로그인과 제출 완료 화면은 고정 높이 컨테이너 대신 세로 스크롤 컨테이너를 사용한다. 작은 Android 화면과 키보드가 열린 상태에서도 주요 버튼에 도달할 수 있어야 한다.
 - 작성 화면은 drag 시 키보드를 닫을 수 있게 하고, iOS에서는 `KeyboardAvoidingView`, Android 빌드에서는 명시적인 `softwareKeyboardLayoutMode=resize`를 사용한다.
 - Android 빌드는 `allowBackup=false`로 OS 백업을 끈다. 학생 텍스트 초안을 SecureStore에만 두는 원칙에 더해 앱 데이터 백업 경계도 닫는다.
+
+### Preview APK manifest is verified after EAS build
+
+- Expo config 정적 확인과 Expo Go 화면 검증은 EAS가 만든 native APK의 최종 manifest를 대신하지 않는다.
+- preview APK를 내려받은 뒤 `verify:android:apk`가 Android SDK Build Tools `aapt2`로 패키지 ID, `allowBackup=false`, 키보드 `adjustResize`, `android.permission.RECORD_AUDIO` 부재를 검사한다.
+- Android SDK가 기본 위치에 없으면 명시적인 `-Aapt2Path`를 전달한다.

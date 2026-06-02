@@ -27,6 +27,7 @@
     "verify:local": "powershell -ExecutionPolicy Bypass -File scripts/verify-local.ps1",
     "verify:web:local": "powershell -ExecutionPolicy Bypass -File scripts/verify-web-local.ps1",
     "verify:web:ui-local": "powershell -ExecutionPolicy Bypass -File scripts/verify-web-ui-local.ps1",
+    "verify:android:apk": "powershell -ExecutionPolicy Bypass -File scripts/verify-android-apk.ps1",
     "verify:mobile:lan": "powershell -ExecutionPolicy Bypass -File scripts/verify-mobile-lan.ps1",
     "verify:mobile": "cd apps/mobile && npx expo-doctor && npx expo export --platform android --clear"
   },
