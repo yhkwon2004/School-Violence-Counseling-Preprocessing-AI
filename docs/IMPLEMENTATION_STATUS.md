@@ -115,6 +115,7 @@
 - polling 갱신 중에도 작성 중 누락 질문 답변을 유지하고 사라진 질문 초안을 정리하는 모바일 로컬 답변 병합 정책
 - 질문별 저장 상태와 카드 내 재시도 버튼, 늦게 완료된 이전 요청 결과를 무시하는 모바일 저장 버전 경계
 - 미저장 질문의 단계 이동·제출 잠금, 실패 답변의 재시도·서버 값 복원, 서버 메모 PATCH와 SecureStore write·clear 순서를 보장하는 `MemoUpdateQueue`
+- clean checkout readiness에서 `MemoUpdateQueue` 테스트 등록, API 큐 대기, 질문 잠금, SecureStore 큐, 동기 제출 ref, 키보드 완료 저장 계약 확인
 - 업로드 정리와 처리 접수가 같은 증거 행 잠금을 공유하고 중복 처리 요청을 한 durable 작업으로 병합하는 DB 예약 경계
 - 실패 작업과 `10분` 넘게 멈춘 `queued`·`processing` 작업을 `for update skip locked`로 회수하는 원자적 재시도 예약
 - 대기·처리 중 증거가 남은 사건 제출을 모바일 정책과 DB RPC에서 함께 차단

@@ -314,6 +314,7 @@
 - 이전 PATCH가 실패해도 다음 최신 PATCH는 계속 실행한다.
 - 분석은 최신 메모 PATCH를 기다리고, 제출은 남은 큐를 비운 뒤 DB 트랜잭션 RPC를 호출한다.
 - SecureStore 초안 write·clear도 별도 `MemoUpdateQueue`로 직렬화한다. 제출 시작은 동기 ref 가드로 연속 탭을 즉시 막는다. 제출 중에는 새 자동 저장 예약을 멈추고, 서버 제출 성공 뒤 clear가 이전 write보다 늦게 실행되게 한다.
+- 배포 readiness는 큐 테스트 등록과 앱·API의 핵심 연결 지점을 함께 검사해 clean checkout에서 무결성 경계가 빠지는 회귀를 막는다.
 
 ### Readiness accepts Windows checkout line endings
 

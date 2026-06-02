@@ -79,6 +79,27 @@ Assert-True ($package.devDependencies.supabase -eq '2.103.0') 'Supabase CLI must
 Assert-True ($mobileIgnore -match '(?m)^expo-env\.d\.ts\r?$') 'Expo-generated type references must stay out of git'
 Write-Output 'eas_config=ok'
 
+$studentWizard = Read-WorkspaceFile 'apps/mobile/app/index.tsx'
+$studentApiClient = Read-WorkspaceFile 'apps/mobile/src/studentApi.ts'
+$studentFlow = Read-WorkspaceFile 'apps/mobile/src/studentFlow.ts'
+$memoUpdateQueue = Read-WorkspaceFile 'apps/mobile/src/memoUpdateQueue.ts'
+$memoUpdateQueueTest = Read-WorkspaceFile 'apps/mobile/src/memoUpdateQueue.test.ts'
+Assert-True ($package.scripts.'test:mobile-core'.Contains('memoUpdateQueue.test.ts')) 'Mobile core tests must include MemoUpdateQueue ordering'
+foreach ($marker in @('class MemoUpdateQueue', 'enqueue(update:', 'waitForIdle()')) {
+  Assert-True ($memoUpdateQueue.Contains($marker)) "Mobile memo update queue is missing: $marker"
+}
+foreach ($marker in @('runs memo updates in request order', 'continues with the newest update after an earlier request fails')) {
+  Assert-True ($memoUpdateQueueTest.Contains($marker)) "Mobile memo update queue test is missing: $marker"
+}
+foreach ($marker in @('new MemoUpdateQueue()', 'this.memoUpdates.waitForIdle()')) {
+  Assert-True ($studentApiClient.Contains($marker)) "Student API memo ordering is missing: $marker"
+}
+foreach ($marker in @('questionSaveBlockReason', 'pendingQuestionSave !== null', 'submissionInFlight.current', 'deviceDraftUpdates.enqueue', 'submitBehavior="blurAndSubmit"')) {
+  Assert-True ($studentWizard.Contains($marker)) "Student wizard integrity guard is missing: $marker"
+}
+Assert-True ($studentFlow.Contains("export function questionSaveBlockReason")) 'Student question save blocking policy is missing'
+Write-Output 'mobile_submission_integrity=ok'
+
 $vercel = Read-WorkspaceFile 'apps/web/vercel.json' | ConvertFrom-Json
 Assert-True ($vercel.framework -eq 'vite') 'Vercel framework must be vite'
 Assert-True ($vercel.buildCommand -eq 'npm run build') 'Vercel build command is missing'
