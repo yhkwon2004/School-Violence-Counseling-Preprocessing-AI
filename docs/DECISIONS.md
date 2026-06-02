@@ -329,3 +329,10 @@
 - 서버 권한 검증은 `SECRET_KEY`를 먼저 사용하고 구형 CLI에서만 `SERVICE_ROLE_KEY`로 fallback한다.
 - `db reset` 뒤 기존 서비스 컨테이너와 새 DB 스키마가 섞여 Realtime subscription 등록이 실패하면 `npm.cmd run supabase:stop`, `npm.cmd run supabase:start`로 전체 로컬 스택을 다시 구성한다.
 - `verify:local`은 `db reset` 직후 Auth와 Edge HTTP readiness를 기다리고 학생 로그인 Edge 호출을 제한된 횟수로 재시도한다. 컨테이너 내부 DNS가 안정화되는 짧은 구간을 제품 실패로 오인하지 않게 한다.
+
+### Connected web smoke verifies each staff scope
+
+- 연결 웹 UI 스모크는 상담자, 기관 관리자, 플랫폼 관리자 seed 계정을 각각 Auth 화면으로 로그인한다.
+- 상담자는 저장된 FactBlock-증거 연결, 기관 관리자는 seed `30일` 보관 정책과 `7일` 삭제 복구 기간, 플랫폼 관리자는 기관 관리 메뉴와 기관 전용 보관 정책 비노출을 확인한다.
+- 로그인 실패는 화면 오류 문구를 즉시 보고하고, 다른 UI 실패도 마지막 화면을 `web-ui-failure.png`로 남긴다.
+- 보관 정책의 두 입력은 넓은 화면에서 두 열을 유지하되 grid 안에서 축소하고, 작은 화면에서는 한 열로 배치한다. UI 스모크는 데스크톱 카드 경계와 `390px` viewport의 한 열 배치·가로 스크롤 부재를 검사한다.

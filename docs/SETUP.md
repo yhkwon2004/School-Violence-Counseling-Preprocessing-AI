@@ -41,7 +41,7 @@ npm.cmd run verify:web:local -- -WebUrl http://127.0.0.1:5175
 npm.cmd run verify:web:ui-local -- -WebUrl http://127.0.0.1:5175
 ```
 
-`configure:web:local`은 로컬 URL과 publishable key만 `apps/web/.env.local`에 기록한다. 구형 CLI에서는 anon key로 fallback한다. `verify:web:local`은 공개 env 허용 목록, Supabase Auth health, Vite 진입 HTML을 검사한다. `verify:web:ui-local`은 headless Chrome으로 상담자·플랫폼 관리자 seed 로그인을 수행하고 증거맵 연결과 역할별 메뉴를 검사한 뒤 `C:\tmp\ieumlog-web-ui-smoke`에 화면 이미지를 남긴다.
+`configure:web:local`은 로컬 URL과 publishable key만 `apps/web/.env.local`에 기록한다. 구형 CLI에서는 anon key로 fallback한다. `verify:web:local`은 공개 env 허용 목록, Supabase Auth health, Vite 진입 HTML을 검사한다. `verify:web:ui-local`은 headless Chrome으로 상담자·기관 관리자·플랫폼 관리자 seed 로그인을 수행하고 증거맵 연결, 보관 정책, 역할별 메뉴를 검사한다. 기관 관리자 정책 화면은 `390px` viewport도 확인한다. 결과 이미지는 `C:\tmp\ieumlog-web-ui-smoke`에 남고 실패 시 마지막 화면은 `web-ui-failure.png`로 남는다.
 
 ## 2. 로컬 Supabase
 

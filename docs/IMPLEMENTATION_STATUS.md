@@ -1,6 +1,6 @@
 # 구현 상태
 
-최종 갱신: 2026-06-01
+최종 갱신: 2026-06-02
 
 ## 완료
 
@@ -109,7 +109,8 @@
 - Expo CLI 생성 `expo-env.d.ts`를 제외하는 모바일 전용 `.gitignore`
 - 공개 env 허용 목록, LAN Supabase health, Metro status와 Expo Go URL을 확인하는 `verify:mobile:lan`
 - 공개 env 허용 목록, 로컬 Supabase health, Vite HTML을 확인하는 `configure:web:local`, `verify:web:local`
-- headless Chrome seed 로그인으로 상담자 FactBlock 증거 연결과 플랫폼 관리자 역할 메뉴를 검사하고 화면 이미지를 남기는 `verify:web:ui-local`
+- headless Chrome seed 로그인으로 상담자 FactBlock 증거 연결, 기관 관리자 보관 정책, 플랫폼 관리자 역할 메뉴를 검사하고 성공·실패 화면 이미지를 남기는 `verify:web:ui-local`
+- 기관 관리자 보관 정책 입력의 grid 넘침 방지, 좁은 화면 한 열 배치, `390px` viewport 자동 검증
 - 제출 사건 잠금 복원·재개방·새 기록 분기와 복구 초안 재분석 잠금을 분리한 모바일 상태 정책 테스트
 - 동일 메모 단계 복구와 최신 기기 메모 복원을 유지하면서 오래된 SecureStore 메모의 서버 덮어쓰기를 막는 시간 비교 정책
 - polling 갱신 중에도 작성 중 누락 질문 답변을 유지하고 사라진 질문 초안을 정리하는 모바일 로컬 답변 병합 정책

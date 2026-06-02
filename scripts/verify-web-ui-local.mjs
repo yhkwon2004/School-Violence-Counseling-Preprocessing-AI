@@ -72,6 +72,20 @@ async function waitFor(client, expression, label, timeoutMs = 15000) {
   throw new Error(`Timed out waiting for ${label}`);
 }
 
+async function waitForWorkspaceOrLoginError(client, selector, label, timeoutMs = 15000) {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    const state = await evaluate(client, `(() => ({
+      ready: Boolean(document.querySelector(${JSON.stringify(selector)})),
+      error: document.querySelector('.form-error')?.textContent.trim() ?? '',
+    }))()`);
+    if (state.ready) return;
+    if (state.error) throw new Error(`${label} login failed: ${state.error}`);
+    await sleep(200);
+  }
+  throw new Error(`Timed out waiting for ${label}`);
+}
+
 async function screenshot(client, fileName) {
   const response = await client.send('Page.captureScreenshot', {
     captureBeyondViewport: true,
@@ -91,7 +105,19 @@ async function login(client, email) {
     };
     setInput(document.querySelector('input[type="email"]'), ${JSON.stringify(email)});
     setInput(document.querySelector('input[type="password"]'), 'demo1234');
+    return true;
+  })()`);
+  await sleep(100);
+  await evaluate(client, `(() => {
     document.querySelector('.staff-login-form').requestSubmit();
+    return true;
+  })()`);
+}
+
+async function logout(client) {
+  await evaluate(client, `(() => {
+    localStorage.removeItem('ieumlog:staff-session');
+    location.reload();
     return true;
   })()`);
 }
@@ -107,7 +133,7 @@ try {
   await client.send('Runtime.enable');
   await client.send('Page.navigate', { url: webUrl });
   await login(client, 'counselor@wee.demo');
-  await waitFor(client, 'document.querySelector(".counselor-workspace")', 'counselor workspace');
+  await waitForWorkspaceOrLoginError(client, '.counselor-workspace', 'counselor workspace');
 
   const counselor = await evaluate(client, `(() => ({
     caseCodes: [...document.querySelectorAll('.case-code')].map((node) => node.textContent.trim()),
@@ -127,19 +153,67 @@ try {
   await screenshot(client, 'counselor-evidence-map.png');
   console.log('connected_counselor_ui=ok');
 
+  await logout(client);
+  await login(client, 'admin@wee.demo');
+  await waitForWorkspaceOrLoginError(client, '.admin-layout', 'institution admin workspace');
+  const institutionAdminNavigation = await evaluate(client, `[...document.querySelectorAll('.admin-sidebar nav button')].map((node) => node.textContent.trim())`);
+  assert(institutionAdminNavigation.includes('보관 정책'), 'Institution admin workspace did not render retention controls.');
+  assert(!institutionAdminNavigation.includes('기관 관리'), 'Institution admin workspace exposed platform-only institution management.');
   await evaluate(client, `(() => {
-    localStorage.removeItem('ieumlog:staff-session');
-    location.reload();
-    return true;
+    const button = [...document.querySelectorAll('.admin-sidebar nav button')].find((node) => node.textContent.trim() === '보관 정책');
+    button?.click();
+    return Boolean(button);
   })()`);
+  await waitFor(client, 'document.querySelector(".policy-card")', 'institution retention policy');
+  const retentionValues = await evaluate(client, `[...document.querySelectorAll('.policy-card input')].map((node) => node.value)`);
+  assert(retentionValues[0] === '30', 'Institution retention policy did not restore the seed retention period.');
+  assert(retentionValues[1] === '7', 'Institution retention policy did not render the deletion recovery period.');
+  const desktopRetentionLayout = await evaluate(client, `(() => {
+    const card = document.querySelector('.policy-card').getBoundingClientRect();
+    const inputs = [...document.querySelectorAll('.policy-card input')].map((node) => node.getBoundingClientRect());
+    return { cardRight: card.right, inputRights: inputs.map((input) => input.right) };
+  })()`);
+  assert(
+    desktopRetentionLayout.inputRights.every((right) => right <= desktopRetentionLayout.cardRight + 1),
+    'Institution retention policy input overflowed its desktop card.',
+  );
+  await screenshot(client, 'institution-admin-retention.png');
+
+  await client.send('Emulation.setDeviceMetricsOverride', {
+    deviceScaleFactor: 1,
+    height: 844,
+    mobile: true,
+    width: 390,
+  });
+  await sleep(250);
+  const mobileRetentionLayout = await evaluate(client, `(() => {
+    const labels = [...document.querySelectorAll('.policy-card label')].map((node) => node.getBoundingClientRect());
+    return {
+      firstTop: labels[0].top,
+      hasHorizontalOverflow: document.documentElement.scrollWidth > window.innerWidth,
+      secondTop: labels[1].top,
+    };
+  })()`);
+  assert(mobileRetentionLayout.secondTop > mobileRetentionLayout.firstTop, 'Institution retention controls did not stack on a mobile viewport.');
+  assert(!mobileRetentionLayout.hasHorizontalOverflow, 'Institution retention workspace overflowed horizontally on a mobile viewport.');
+  await screenshot(client, 'institution-admin-retention-mobile.png');
+  await client.send('Emulation.clearDeviceMetricsOverride');
+  await sleep(250);
+  console.log('connected_institution_admin_ui=ok');
+
+  await logout(client);
   await login(client, 'platform@ieumlog.demo');
-  await waitFor(client, 'document.querySelector(".admin-layout")', 'platform admin workspace');
+  await waitForWorkspaceOrLoginError(client, '.admin-layout', 'platform admin workspace');
   const platformNavigation = await evaluate(client, `[...document.querySelectorAll('.admin-sidebar nav button')].map((node) => node.textContent.trim())`);
   assert(platformNavigation.includes('기관 관리'), 'Platform admin workspace did not render institution management.');
   assert(!platformNavigation.includes('보관 정책'), 'Platform admin workspace exposed institution-only retention controls.');
   await screenshot(client, 'platform-admin-menu.png');
   console.log('connected_platform_ui=ok');
   console.log(`web_ui_screenshots=${screenshotDir}`);
+} catch (error) {
+  await screenshot(client, 'web-ui-failure.png').catch(() => undefined);
+  console.error(`web_ui_failure_screenshot=${join(screenshotDir, 'web-ui-failure.png')}`);
+  throw error;
 } finally {
   client.close();
 }

@@ -165,7 +165,7 @@ Assert-True ($package.scripts.'verify:web:ui-local'.Contains('verify-web-ui-loca
 foreach ($marker in @('--headless=new', '-WindowStyle Hidden', 'verify-web-ui-local.mjs')) {
   Assert-True ($verifyWebUiLocal.Contains($marker)) "Connected web UI smoke launcher is missing: $marker"
 }
-foreach ($marker in @('connected_counselor_ui=ok', 'connected_platform_ui=ok', 'counselor-evidence-map.png', 'platform-admin-menu.png')) {
+foreach ($marker in @('connected_counselor_ui=ok', 'connected_institution_admin_ui=ok', 'connected_platform_ui=ok', 'counselor-evidence-map.png', 'institution-admin-retention.png', 'institution-admin-retention-mobile.png', 'platform-admin-menu.png', 'web-ui-failure.png', 'login failed:', 'Emulation.setDeviceMetricsOverride', 'hasHorizontalOverflow')) {
   Assert-True ($verifyWebUiLocalNode.Contains($marker)) "Connected web UI smoke check is missing: $marker"
 }
 Write-Output 'connected_web_ui_automation=ok'

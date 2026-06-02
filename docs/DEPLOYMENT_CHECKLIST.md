@@ -23,7 +23,7 @@ npm.cmd run verify:web:local -- -WebUrl http://127.0.0.1:5175
 npm.cmd run verify:web:ui-local -- -WebUrl http://127.0.0.1:5175
 ```
 
-`verify:web:local`은 웹 공개 env에 URL과 publishable key 또는 legacy anon key만 있는지, Supabase Auth와 Vite HTML이 준비됐는지 확인한다. `verify:web:ui-local`은 상담자 증거맵과 플랫폼 관리자 역할 메뉴를 실제 seed 로그인 화면으로 검사한다.
+`verify:web:local`은 웹 공개 env에 URL과 publishable key 또는 legacy anon key만 있는지, Supabase Auth와 Vite HTML이 준비됐는지 확인한다. `verify:web:ui-local`은 실제 seed 로그인 화면에서 상담자 증거맵, 기관 관리자 보관 정책, 플랫폼 관리자 역할 메뉴를 검사한다. 기관 관리자 정책 화면은 데스크톱 카드 넘침과 `390px` viewport의 한 열 배치도 확인한다. 실패하면 `C:\tmp\ieumlog-web-ui-smoke\web-ui-failure.png`에 마지막 화면을 남긴다.
 
 ## 2. Android Expo Go
 
