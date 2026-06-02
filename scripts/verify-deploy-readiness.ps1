@@ -69,7 +69,13 @@ $appConfig = Read-WorkspaceFile 'apps/mobile/app.json' | ConvertFrom-Json
 $eas = Read-WorkspaceFile 'apps/mobile/eas.json' | ConvertFrom-Json
 $package = Read-WorkspaceFile 'package.json' | ConvertFrom-Json
 $mobileIgnore = Read-WorkspaceFile 'apps/mobile/.gitignore'
+$audioPlugin = @($appConfig.expo.plugins | Where-Object { $_ -is [System.Object[]] -and $_[0] -eq 'expo-audio' })[0]
 Assert-True ($appConfig.expo.android.package -eq 'kr.ieumlog.student') 'Android package id is missing'
+Assert-True ($appConfig.expo.android.allowBackup -eq $false) 'Android backup must stay disabled for sensitive student records'
+Assert-True ($appConfig.expo.android.softwareKeyboardLayoutMode -eq 'resize') 'Android keyboard layout must stay in resize mode'
+Assert-True ($null -ne $audioPlugin) 'Expo audio plugin configuration is missing'
+Assert-True ($audioPlugin[1].recordAudioAndroid -eq $false) 'Android audio recording permission must stay disabled'
+Assert-True ($audioPlugin[1].microphonePermission -eq $false) 'Microphone permission prompt must stay disabled'
 Assert-True ($appConfig.expo.ios.bundleIdentifier -eq 'kr.ieumlog.student') 'iOS bundle id is missing'
 Assert-True ($eas.build.preview.android.buildType -eq 'apk') 'EAS preview must produce an APK'
 Assert-True ($eas.build.production.android.buildType -eq 'app-bundle') 'EAS production must produce an app bundle'
@@ -94,7 +100,7 @@ foreach ($marker in @('runs memo updates in request order', 'continues with the 
 foreach ($marker in @('new MemoUpdateQueue()', 'this.memoUpdates.waitForIdle()')) {
   Assert-True ($studentApiClient.Contains($marker)) "Student API memo ordering is missing: $marker"
 }
-foreach ($marker in @('questionSaveBlockReason', 'pendingQuestionSave !== null', 'submissionInFlight.current', 'deviceDraftUpdates.enqueue', 'submitBehavior="blurAndSubmit"')) {
+foreach ($marker in @('questionSaveBlockReason', 'pendingQuestionSave !== null', 'submissionInFlight.current', 'deviceDraftUpdates.enqueue', 'submitBehavior="blurAndSubmit"', 'KeyboardAvoidingView', 'keyboardDismissMode="on-drag"', '<ScrollView contentContainerStyle={styles.loginWrap}', '<ScrollView contentContainerStyle={styles.centered}')) {
   Assert-True ($studentWizard.Contains($marker)) "Student wizard integrity guard is missing: $marker"
 }
 Assert-True ($studentFlow.Contains("export function questionSaveBlockReason")) 'Student question save blocking policy is missing'

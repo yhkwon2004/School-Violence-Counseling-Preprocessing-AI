@@ -336,3 +336,9 @@
 - 상담자는 저장된 FactBlock-증거 연결, 기관 관리자는 seed `30일` 보관 정책과 `7일` 삭제 복구 기간, 플랫폼 관리자는 기관 관리 메뉴와 기관 전용 보관 정책 비노출을 확인한다.
 - 로그인 실패는 화면 오류 문구를 즉시 보고하고, 다른 UI 실패도 마지막 화면을 `web-ui-failure.png`로 남긴다.
 - 보관 정책의 두 입력은 넓은 화면에서 두 열을 유지하되 grid 안에서 축소하고, 작은 화면에서는 한 열로 배치한다. UI 스모크는 데스크톱 카드 경계와 `390px` viewport의 한 열 배치·가로 스크롤 부재를 검사한다.
+
+### Mobile screens remain usable with limited height
+
+- 로그인과 제출 완료 화면은 고정 높이 컨테이너 대신 세로 스크롤 컨테이너를 사용한다. 작은 Android 화면과 키보드가 열린 상태에서도 주요 버튼에 도달할 수 있어야 한다.
+- 작성 화면은 drag 시 키보드를 닫을 수 있게 하고, iOS에서는 `KeyboardAvoidingView`, Android 빌드에서는 명시적인 `softwareKeyboardLayoutMode=resize`를 사용한다.
+- Android 빌드는 `allowBackup=false`로 OS 백업을 끈다. 학생 텍스트 초안을 SecureStore에만 두는 원칙에 더해 앱 데이터 백업 경계도 닫는다.

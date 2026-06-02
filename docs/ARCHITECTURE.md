@@ -74,6 +74,8 @@ flowchart LR
 - 서버와 기기 메모가 같으면 SecureStore의 단계 진행만 복원한다. 메모가 다르면 `updatedAt`을 비교해 서버보다 최신인 기기 초안만 복원하고 오래된 기기 초안은 best-effort로 정리한다.
 - `case-evidence` Storage bucket은 private으로 유지한다. 통합 검증은 원본 객체 직접 URL의 익명 접근 거절과 권한 확인 뒤 서명 URL 업로드·다운로드 성공을 함께 검사한다.
 - Android Expo Go 실기기 검증은 `docs/ANDROID_EXPO_GO_TEST_RECORD.md`에 기기 환경과 단계별 결과를 기록한다. 자동 LAN readiness와 사람이 확인하는 앱 상호작용 증거를 구분한다.
+- 모바일 로그인과 제출 완료 화면은 작은 화면에서도 스크롤 가능한 컨테이너를 사용한다. 작성 화면은 키보드 drag dismiss와 iOS `KeyboardAvoidingView`, Android `resize` 레이아웃을 조합한다.
+- Android 빌드는 `allowBackup=false`로 기기 백업을 끈다. Expo audio plugin은 녹음과 마이크 권한 요청을 비활성화한다. Expo Go 흐름에서는 화면 동작을 확인하고, native 설정은 EAS preview 빌드에서도 다시 확인한다.
 - `current_profile_role()`, `current_institution_id()`, Edge Function의 `requireActiveProfile()`은 활성 프로필과 활성 기관을 함께 요구한다. 비활성화 전에 발급된 JWT가 남아 있어도 직원 RLS와 서비스 키 기반 Edge Function 우회를 막는다.
 - `admin-users`는 활성 기관에만 계정을 발급한다. `retry-failed-jobs`는 `attempts < 3`인 실패 작업과 `10분` 넘게 멈춘 작업만 원자적으로 다시 접수하며 통합 테스트가 중복 cron 병합, 중단 작업 회수, 상한 도달 작업의 정지를 확인한다.
 - FactBlock, 사람, 관계, 증거, FactBlock-증거 연결의 변경은 서비스 역할 처리 경로만 담당한다. 학생 질문 업데이트 RLS는 학생 본인 사건의 `student_review`·`reopened` 상태에만 열고, 상담자에게는 조회와 내부 메모 추가만 허용한다.
@@ -89,6 +91,8 @@ flowchart LR
 - [Expo monorepo](https://docs.expo.dev/guides/monorepos/)
 - [Expo Babel config](https://docs.expo.dev/versions/latest/config/babel/)
 - [Expo SecureStore](https://docs.expo.dev/versions/v54.0.0/sdk/securestore/)
+- [Expo app config](https://docs.expo.dev/versions/latest/config/app/)
+- [Expo keyboard handling](https://docs.expo.dev/guides/keyboard-handling/)
 - [Supabase Edge Functions](https://supabase.com/docs/guides/functions)
 - [Supabase Edge Function secrets](https://supabase.com/docs/guides/functions/secrets)
 - [Supabase cron Edge Functions](https://supabase.com/docs/guides/functions/schedule-functions)

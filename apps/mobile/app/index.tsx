@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -255,25 +257,27 @@ export default function StudentWizard() {
   if (!loggedIn) {
     return (
       <SafeAreaView style={styles.safe}>
-        <View style={styles.loginWrap}>
-          <View style={styles.logo}><Text style={styles.logoText}>이음</Text></View>
-          <Text style={styles.eyebrow}>학교폭력 상담 전 기록 정리</Text>
-          <Text style={styles.hero}>흩어진 경험을{'\n'}천천히 연결해요.</Text>
-          <Text style={styles.muted}>개인 이메일 대신 기관에서 받은 익명 학생 ID를 사용합니다.</Text>
-          <View style={styles.card}>
-            <Text style={styles.label}>기관 발급 학생 ID</Text>
-            <TextInput onChangeText={setLoginId} style={styles.input} value={loginId} />
-            <Text style={styles.label}>비밀번호</Text>
-            <TextInput onChangeText={setPassword} secureTextEntry style={styles.input} value={password} />
-            {loginError ? <Text style={styles.errorText}>{loginError}</Text> : null}
-            <PrimaryButton
-              disabled={busy}
-              label={busy ? '확인 중...' : '안전하게 시작하기'}
-              onPress={() => void login(loginId, password, setBusy, setLoginError, setLoggedIn, openConnectedCase)}
-            />
-          </View>
-          <Text style={styles.caption}>{studentApi.connected ? 'Supabase 연결 모드 · 기관 발급 계정을 확인합니다.' : '합성 데이터 데모 · 환경변수를 등록하면 Supabase 연결 모드로 전환됩니다.'}</Text>
-        </View>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.screen}>
+          <ScrollView contentContainerStyle={styles.loginWrap} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled">
+            <View style={styles.logo}><Text style={styles.logoText}>이음</Text></View>
+            <Text style={styles.eyebrow}>학교폭력 상담 전 기록 정리</Text>
+            <Text style={styles.hero}>흩어진 경험을{'\n'}천천히 연결해요.</Text>
+            <Text style={styles.muted}>개인 이메일 대신 기관에서 받은 익명 학생 ID를 사용합니다.</Text>
+            <View style={styles.card}>
+              <Text style={styles.label}>기관 발급 학생 ID</Text>
+              <TextInput onChangeText={setLoginId} style={styles.input} value={loginId} />
+              <Text style={styles.label}>비밀번호</Text>
+              <TextInput onChangeText={setPassword} secureTextEntry style={styles.input} value={password} />
+              {loginError ? <Text style={styles.errorText}>{loginError}</Text> : null}
+              <PrimaryButton
+                disabled={busy}
+                label={busy ? '확인 중...' : '안전하게 시작하기'}
+                onPress={() => void login(loginId, password, setBusy, setLoginError, setLoggedIn, openConnectedCase)}
+              />
+            </View>
+            <Text style={styles.caption}>{studentApi.connected ? 'Supabase 연결 모드 · 기관 발급 계정을 확인합니다.' : '합성 데이터 데모 · 환경변수를 등록하면 Supabase 연결 모드로 전환됩니다.'}</Text>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </SafeAreaView>
     );
   }
@@ -281,7 +285,7 @@ export default function StudentWizard() {
   if (submitted) {
     return (
       <SafeAreaView style={styles.safe}>
-        <View style={styles.centered}>
+        <ScrollView contentContainerStyle={styles.centered} keyboardShouldPersistTaps="handled">
           <View style={styles.successMark}><Text style={styles.successText}>✓</Text></View>
           <Text style={styles.heroSmall}>기록을 제출했어요.</Text>
           <Text style={[styles.muted, styles.centerText]}>
@@ -311,43 +315,45 @@ export default function StudentWizard() {
             />
           )}
           <PrimaryButton label="처음 화면으로" onPress={() => void resetSession(setDeleteRequested, setLoggedIn, setSubmitted, setStep)} />
-        </View>
+        </ScrollView>
       </SafeAreaView>
     );
   }
 
   return (
     <SafeAreaView style={styles.safe}>
-      <View style={styles.top}>
-        <Text style={styles.topBrand}>이음로그</Text>
-        <Text style={styles.topStep}>{step + 1}/{stages.length}</Text>
-      </View>
-      <View style={styles.progressTrack}><View style={[styles.progressBar, { width: progress }]} /></View>
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        {restored && <View style={styles.infoBox}><Text style={styles.infoText}>이전에 작성하던 텍스트 초안을 불러왔어요.</Text></View>}
-        <Text style={styles.eyebrow}>{stages[step]}</Text>
-        {step === 0 && <SafetyStep />}
-        {step === 1 && <MemoStep memo={memo} onChange={updateMemo} />}
-        {step === 2 && <EvidenceStep evidence={evidence} onPick={() => void pickEvidence(caseId, evidence, setEvidence, setUploadingEvidence)} uploading={uploadingEvidence} />}
-        {step === 3 && <AnalysisStep analyzing={analyzing} analysis={analysis} evidence={evidence} onAnalyze={() => void runAnalysis(caseId, evidence, memo, setAnalyzing, setAnalysis, setFacts, resetQuestionAnswers, setAnalysisRequired, refreshConnectedData)} />}
-        {step === 4 && <QuestionsStep analysis={analysis} answers={questionAnswerDrafts} connected={studentApi.connected} questions={questions} saveStatuses={questionSaveStatuses} onAnswer={(id, answer) => void saveAnswer(id, answer, setQuestionAnswerDrafts, beginQuestionSave, finishQuestionSave)} onAnswerChange={updateQuestionAnswerDraft} onDiscard={discardQuestionAnswerDraft} />}
-        {step === 5 && <ConfirmStep evidence={evidence} facts={analysisRequired ? [] : facts} memo={memo} />}
-      </ScrollView>
-      <View style={styles.bottomBar}>
-        {step > 0 && <SecondaryButton label="이전" onPress={() => setStep((current) => current - 1)} />}
-        <PrimaryButton
-          disabled={(step === 3 && analysisStepAdvanceBlocked) || (step === 4 && pendingQuestionSave !== null) || (step === stages.length - 1 && (submitBlockReason !== null || pendingQuestionSave !== null || submitting))}
-          grow
-          label={submitting ? '안전하게 제출하고 있어요' : step === 3 && analyzing ? '기록을 정리하고 있어요' : step === 3 && analysisStepAdvanceBlocked ? '기록 정리를 먼저 완료해 주세요' : step === 4 && pendingQuestionSave === 'dirty' ? '입력을 마쳐 저장해 주세요' : step === 4 && pendingQuestionSave === 'saving' ? '답변을 저장하고 있어요' : step === 4 && pendingQuestionSave === 'error' ? '답변 저장을 다시 확인해 주세요' : step === stages.length - 1 && submitBlockReason === 'evidence_processing' ? '증거 처리를 기다리고 있어요' : step === stages.length - 1 && submitBlockReason === 'analysis_required' ? '기록 정리가 필요해요' : step === stages.length - 1 && pendingQuestionSave ? '답변 저장을 확인해 주세요' : step === stages.length - 1 ? '확인 후 제출' : '다음'}
-          onPress={() => {
-            if (step === stages.length - 1) {
-              void submitCase(caseId, memo, submissionInFlight, setSubmitting, setSubmitted);
-              return;
-            }
-            setStep((current) => Math.min(current + 1, stages.length - 1));
-          }}
-        />
-      </View>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.screen}>
+        <View style={styles.top}>
+          <Text style={styles.topBrand}>이음로그</Text>
+          <Text style={styles.topStep}>{step + 1}/{stages.length}</Text>
+        </View>
+        <View style={styles.progressTrack}><View style={[styles.progressBar, { width: progress }]} /></View>
+        <ScrollView contentContainerStyle={styles.content} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled">
+          {restored && <View style={styles.infoBox}><Text style={styles.infoText}>이전에 작성하던 텍스트 초안을 불러왔어요.</Text></View>}
+          <Text style={styles.eyebrow}>{stages[step]}</Text>
+          {step === 0 && <SafetyStep />}
+          {step === 1 && <MemoStep memo={memo} onChange={updateMemo} />}
+          {step === 2 && <EvidenceStep evidence={evidence} onPick={() => void pickEvidence(caseId, evidence, setEvidence, setUploadingEvidence)} uploading={uploadingEvidence} />}
+          {step === 3 && <AnalysisStep analyzing={analyzing} analysis={analysis} evidence={evidence} onAnalyze={() => void runAnalysis(caseId, evidence, memo, setAnalyzing, setAnalysis, setFacts, resetQuestionAnswers, setAnalysisRequired, refreshConnectedData)} />}
+          {step === 4 && <QuestionsStep analysis={analysis} answers={questionAnswerDrafts} connected={studentApi.connected} questions={questions} saveStatuses={questionSaveStatuses} onAnswer={(id, answer) => void saveAnswer(id, answer, setQuestionAnswerDrafts, beginQuestionSave, finishQuestionSave)} onAnswerChange={updateQuestionAnswerDraft} onDiscard={discardQuestionAnswerDraft} />}
+          {step === 5 && <ConfirmStep evidence={evidence} facts={analysisRequired ? [] : facts} memo={memo} />}
+        </ScrollView>
+        <View style={styles.bottomBar}>
+          {step > 0 && <SecondaryButton label="이전" onPress={() => setStep((current) => current - 1)} />}
+          <PrimaryButton
+            disabled={(step === 3 && analysisStepAdvanceBlocked) || (step === 4 && pendingQuestionSave !== null) || (step === stages.length - 1 && (submitBlockReason !== null || pendingQuestionSave !== null || submitting))}
+            grow
+            label={submitting ? '안전하게 제출하고 있어요' : step === 3 && analyzing ? '기록을 정리하고 있어요' : step === 3 && analysisStepAdvanceBlocked ? '기록 정리를 먼저 완료해 주세요' : step === 4 && pendingQuestionSave === 'dirty' ? '입력을 마쳐 저장해 주세요' : step === 4 && pendingQuestionSave === 'saving' ? '답변을 저장하고 있어요' : step === 4 && pendingQuestionSave === 'error' ? '답변 저장을 다시 확인해 주세요' : step === stages.length - 1 && submitBlockReason === 'evidence_processing' ? '증거 처리를 기다리고 있어요' : step === stages.length - 1 && submitBlockReason === 'analysis_required' ? '기록 정리가 필요해요' : step === stages.length - 1 && pendingQuestionSave ? '답변 저장을 확인해 주세요' : step === stages.length - 1 ? '확인 후 제출' : '다음'}
+            onPress={() => {
+              if (step === stages.length - 1) {
+                void submitCase(caseId, memo, submissionInFlight, setSubmitting, setSubmitted);
+                return;
+              }
+              setStep((current) => Math.min(current + 1, stages.length - 1));
+            }}
+          />
+        </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -865,7 +871,8 @@ function SecondaryButton({ disabled = false, label, onPress }: { disabled?: bool
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#f7f9fc' },
-  loginWrap: { flex: 1, justifyContent: 'center', padding: 22 },
+  screen: { flex: 1 },
+  loginWrap: { flexGrow: 1, justifyContent: 'center', padding: 22 },
   logo: { width: 62, height: 62, marginBottom: 22, alignItems: 'center', justifyContent: 'center', borderRadius: 20, backgroundColor: '#073b78' },
   logoText: { color: '#fff', fontSize: 18, fontWeight: '900' },
   eyebrow: { marginBottom: 7, color: '#3976c3', fontSize: 12, fontWeight: '900', letterSpacing: 1.1 },
@@ -882,7 +889,7 @@ const styles = StyleSheet.create({
   progressTrack: { height: 3, backgroundColor: '#dfe7f1' },
   progressBar: { height: 3, backgroundColor: '#3976c3' },
   content: { padding: 18, paddingBottom: 32 },
-  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 28 },
+  centered: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', padding: 28 },
   successMark: { width: 74, height: 74, marginBottom: 18, alignItems: 'center', justifyContent: 'center', borderRadius: 37, backgroundColor: '#dff5eb' },
   successText: { color: '#16845d', fontSize: 36, fontWeight: '900' },
   card: { gap: 9, marginTop: 14, borderWidth: 1, borderColor: '#dbe3ed', borderRadius: 16, backgroundColor: '#fff', padding: 16 },

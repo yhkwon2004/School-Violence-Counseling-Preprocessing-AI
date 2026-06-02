@@ -19,7 +19,9 @@
       ]
     ],
     "android": {
-      "package": "kr.ieumlog.student"
+      "package": "kr.ieumlog.student",
+      "allowBackup": false,
+      "softwareKeyboardLayoutMode": "resize"
     },
     "ios": {
       "bundleIdentifier": "kr.ieumlog.student"
