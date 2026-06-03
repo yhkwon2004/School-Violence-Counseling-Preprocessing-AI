@@ -59,7 +59,7 @@ Expo Go에서 다음 흐름을 확인한다.
 
 ## 3. Hosted Supabase
 
-`supabase/functions/.env.deploy.example`을 참고해 git에서 무시되는 `supabase/functions/.env.deploy`를 만든다. cron secret은 충분히 긴 무작위 값으로 교체하고 `EXTERNAL_AI_MODE=synthetic_only`를 유지한다.
+`supabase/functions/.env.deploy.example`을 참고해 git에서 무시되는 `supabase/functions/.env.deploy`를 만든다. cron secret과 `HANDOFF_CODE_PEPPER`는 충분히 긴 서로 다른 무작위 값으로 교체하고 `EXTERNAL_AI_MODE=synthetic_only`를 유지한다.
 
 ```powershell
 npm.cmd run deploy:supabase -- -ProjectRef yourprojectref1234567

@@ -33,6 +33,8 @@ type DemoAppValue = {
   completeCase: (caseId: string) => void;
   claimCase: (caseId: string) => void;
   assignCase: (caseId: string, counselorId: string) => void;
+  redeemHandoffCode: (code: string) => Promise<{ caseId: string; assignmentId: string | null; status: string }>;
+  saveRelationLayout: (caseId: string, positions: Array<{ id: string; x: number; y: number; locked?: boolean }>) => Promise<void>;
   addNote: (caseId: string, body: string) => void;
   downloadEvidence: (evidenceId: string) => void;
   getEvidencePreviewUrl: (evidenceId: string) => Promise<string | null>;
@@ -191,6 +193,51 @@ export function DemoAppProvider({ children }: PropsWithChildren) {
           return appendAudit({ ...current, assignments, cases }, activeProfileId, 'case.assigned', 'case', caseId);
         });
       },
+      redeemHandoffCode: async (code) => {
+        if (webApi.connected) {
+          const result = await webApi.redeemHandoffCode(code);
+          await reload();
+          return result;
+        }
+        const normalized = code.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+        const record = dataset.cases.find((item) => `CASE-${item.id.slice(-8).toUpperCase()}`.replace(/[^A-Z0-9]/g, '') === normalized);
+        if (!record) throw new Error('인계 코드와 일치하는 사건을 찾을 수 없습니다.');
+        if (activeProfile?.role === 'counselor' && record.status === 'submitted') {
+          setDataset((current) => {
+            const now = new Date().toISOString();
+            const assignments = current.assignments.some((assignment) => assignment.caseId === record.id)
+              ? current.assignments
+              : [
+                  ...current.assignments,
+                  new Assignment(`assignment-${current.assignments.length + 1}`, record.id, activeProfile.id, activeProfile.id, now),
+                ];
+            const cases = current.cases.map((item) => (
+              item.id === record.id && item.status === 'submitted' ? item.moveTo('assigned', now) : item
+            ));
+            return appendAudit({ ...current, assignments, cases }, activeProfile.id, 'case.handoff_redeemed', 'case', record.id);
+          });
+        } else if (activeProfileId) {
+          setDataset((current) => appendAudit(current, activeProfileId, 'case.handoff_checked', 'case', record.id));
+        }
+        return { caseId: record.id, assignmentId: null, status: record.status };
+      },
+      saveRelationLayout: async (caseId, positions) => {
+        if (webApi.connected) {
+          await webApi.saveRelationLayout(caseId, positions);
+          await reload();
+          return;
+        }
+        if (!activeProfileId) return;
+        setDataset((current) => appendAudit({
+          ...current,
+          people: current.people.map((person) => {
+            const position = positions.find((item) => item.id === person.id);
+            return position
+              ? { ...person, positionX: position.x, positionY: position.y, positionLocked: position.locked ?? true }
+              : person;
+          }),
+        }, activeProfileId, 'relation.layout_saved', 'case', caseId));
+      },
       addNote: (caseId, body) => {
         if (!activeProfileId || !body.trim()) return;
         if (webApi.connected) {
@@ -333,7 +380,7 @@ export function DemoAppProvider({ children }: PropsWithChildren) {
         }));
       },
     }),
-    [activeProfile, activeProfileId, applySnapshot, bootstrapping, dataset, notes, retentionDays, runConnected, updateDemoCase],
+    [activeProfile, activeProfileId, applySnapshot, bootstrapping, dataset, notes, reload, retentionDays, runConnected, updateDemoCase],
   );
 
   return <DemoAppContext.Provider value={value}>{children}</DemoAppContext.Provider>;

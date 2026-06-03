@@ -58,7 +58,7 @@ Assert-True ($webEnv -notmatch 'SERVICE_ROLE|SECRET_KEYS|OPENAI|CRON_SECRET') 'W
 Write-Output 'public_env_boundary=ok'
 
 $deploySecrets = Read-WorkspaceFile 'supabase/functions/.env.deploy.example'
-foreach ($name in @('OPENAI_API_KEY', 'EXTERNAL_AI_MODE', 'PROCESS_RETRY_CRON_SECRET', 'PURGE_CRON_SECRET')) {
+foreach ($name in @('OPENAI_API_KEY', 'EXTERNAL_AI_MODE', 'PROCESS_RETRY_CRON_SECRET', 'PURGE_CRON_SECRET', 'HANDOFF_CODE_PEPPER')) {
   Assert-True ($deploySecrets -match "(?m)^$name=") "Missing deploy secret template value: $name"
 }
 Assert-True ($deploySecrets -notmatch '(?m)^SUPABASE_(URL|ANON_KEY|SERVICE_ROLE_KEY|PUBLISHABLE_KEYS|SECRET_KEYS)=') 'Hosted Supabase default secrets should not be duplicated'

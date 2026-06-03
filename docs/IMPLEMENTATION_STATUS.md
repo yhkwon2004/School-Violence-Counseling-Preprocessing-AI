@@ -1,23 +1,27 @@
 # 구현 상태
 
-최종 갱신: 2026-06-02
+최종 갱신: 2026-06-03
 
 ## 완료
 
 - npm workspaces 모노레포 전환
 - 객체 지향 도메인 모델, 접근 정책, 규칙 분석기, 사건별 관계도·증거 연결을 포함한 합성 seed
 - 상담자 웹: 관계도, 타임라인, 증거맵, 파일 유형별 미리보기·다운로드, 질문, 메모, 익명 PDF 인쇄 요약
+- 상담자 웹 고도화: SVG 정밀 관계도, 명확한 화살표 시작·끝점, 간접 관계 점선, 노드 드래그 위치 저장, 노드·간선 포커스 사건철 모달
 - 상담자 웹 연결 모드: 직원 Auth, RLS 사건 조회, 대기 사건 가져오기, 검토 시작, 재개방, 완료, 내부 메모, 로컬·클라우드 서명 미리보기·다운로드
 - 관리자 웹: 현황, 사용자, 배정, 보관 정책, 감사 로그, 기관 CRUD
 - 관리자 웹 연결 모드: 학생·상담자·기관 관리자 발급, 학생·상담자 활성 제어, 원자적 사건 배정·재배정, 기관 생성·이름·지역 수정·보관·재활성화, 기관 보관 기간 변경
+- 관리자·상담자 웹 인계 코드: 학생 앱 코드 입력으로 사건 확인, 상담자 제출 대기 사건 원자 가져오기, 관리자 배정 하이라이트
 - 학생 Expo 앱: 익명 ID 로그인 시연, 단계형 작성, 파일 선택, 처리 상태 배지, 분석, 질문, FactBlock 확인, 제출 잠금
 - 학생 Expo 연결 모드: Auth 세션 복구, 실제 사건 초안, 제출 사건 잠금 복원, 상담자 재개방 확인, 명시적 새 기록 작성, Storage 업로드, 처리 상태 Realtime 구독과 polling fallback, 질문 답변, 제출
+- 학생 Expo 제출 완료 화면: 1회용 관리자 전달 코드 생성, 만료 시각 표시, 복사, 삭제 요청 뒤 생성 차단
 - 학생 Expo 음성 정책: `expo-audio` 길이 확인, 플레이어 즉시 해제, 불필요한 마이크 권한 차단
 - 학생 Expo SDK 54 monorepo 번들 설정: `babel-preset-expo`, SDK 54 Router 변환 플러그인, `expo/metro-config`, `autolinkingModuleResolution`, 웹·모바일 React와 루트 툴링·npm `overrides`의 `19.1.0` 정렬
 - 학생 삭제 요청 UI: 즉시 숨김과 7일 purge 예약 RPC
 - Expo `SecureStore` 기반 텍스트 초안 복구
 - Supabase 마이그레이션: Auth profile, 기관, 사건, 증거, 질문, 작업, 감사 로그, RLS, Storage, `evidence_assets` Realtime publication
 - Edge Functions: 학생 로그인, 사용자·기관 관리, 증거 URL, 원자적 불완전 업로드 예약 정리, 중복 접수를 병합하는 처리 작업 예약, 실패·중단 작업 원자 재접수와 최대 3회 상한, lease 기반 원자 삭제 purge, 명시적 HTTP 메서드 경계
+- Edge Functions: 인계 코드 생성·redeem, 관계도 위치 저장, pepper 기반 코드 해시, 원자 redeem RPC
 - 배포 준비 자동화: Android LAN env 생성, hosted Supabase DB·secret·Function 배포, readiness 검사, Vault 기반 cron 등록 템플릿
 - 격리 hosted 합성 시연 자동화: 임의 비밀번호 주입 bootstrap, 재실행 가능한 seed, anon 범위 smoke 검증
 - hosted private Storage smoke의 Windows PowerShell 문자열·UTF-8 바이트 배열 응답 호환

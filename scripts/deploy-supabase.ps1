@@ -24,7 +24,7 @@ if ($secrets -match '(?m)^SUPABASE_(URL|ANON_KEY|SERVICE_ROLE_KEY|PUBLISHABLE_KE
 if ($secrets -match '(?m)^OPENAI_API_BASE_URL=') {
   throw 'Do not override the official OpenAI endpoint in hosted deployment secrets.'
 }
-foreach ($requiredSecret in @('PROCESS_RETRY_CRON_SECRET', 'PURGE_CRON_SECRET')) {
+foreach ($requiredSecret in @('PROCESS_RETRY_CRON_SECRET', 'PURGE_CRON_SECRET', 'HANDOFF_CODE_PEPPER')) {
   $line = $secrets -split "`r?`n" | Where-Object { $_ -match "^$requiredSecret=" } | Select-Object -First 1
   $value = if ($line) { ($line -split '=', 2)[1].Trim() } else { '' }
   if (-not $value -or $value -like 'replace-with-*') {

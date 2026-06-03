@@ -20,6 +20,8 @@ Expo는 npm workspaces 기반 모노레포를 지원하며 Android Expo Go 검�
 
 핵심 엔터티는 `CaseRecord`, `FactBlock`, `EvidenceAsset`, `ProcessingJob`, `MissingInfoQuestion`, `Assignment`, `RetentionPolicy`이다. `CaseRecord`가 상태 전이와 제출 잠금을 책임지고, `AccessPolicy`가 역할별 접근 판단을 담당한다. 관계도 노드와 간선은 사건 ID를 보존해 여러 사건의 합성·연결 데이터가 화면에서 섞이지 않도록 한다.
 
+`CaseHandoffCode`는 학생 제출 이후 생성 가능한 1회용 사건 인계 코드를 표현한다. 평문 코드는 앱에 한 번만 반환하고 DB에는 pepper 기반 해시만 저장한다. `RelationGraphLayout`은 사람 노드와 관계 간선을 받아 자동 좌표, 노드 경계 기준 화살표 시작·끝점, 포커스 그래프를 순수 함수로 계산한다. 웹은 이 결과만 SVG로 그리며 화면에서 Supabase를 직접 호출하지 않는다.
+
 외부 경계는 `Analyzer`, `CaseRepository`, `EvidenceRepository`, `DraftStore`, `IdentityGateway` 인터페이스로 분리한다. 모바일의 `SecureDraftStore`는 `DraftStore` 구현이며, `StudentApiClient`는 Supabase Auth, REST, Edge Functions, Storage 서명 URL을 화면에서 분리한다. 웹의 `WebApiClient`도 직원 Auth, RLS 조회, RPC, 관리자 Edge Function 호출을 React 화면에서 분리한다.
 
 상담자 웹의 PDF 저장은 브라우저 인쇄를 사용하되 화면 탭과 분리된 인쇄 전용 요약을 렌더링한다. 요약에는 익명 식별자, FactBlock, 증거 목록, 확인 필요 항목만 포함하고 상담자 내부 메모와 법률 판단 문구는 제외한다. 연결 snapshot은 `fact_block_evidence`를 함께 읽어 FactBlock의 `evidenceIds`를 복원한다. 증거맵은 이 연결만 표시하고 연결이 없는 파일에 임의 진술 번호를 만들지 않는다. 증거 미리보기와 다운로드는 짧은 수명의 Storage 서명 URL을 사용한다. 이미지·PDF·음성·영상은 화면 안에서 열고, 일반 문서는 다운로드로 원본을 확인한다. 로컬 Supabase Storage가 반환하는 내부 `kong:8000` URL은 API 공개 주소로 치환한다.
@@ -48,6 +50,10 @@ flowchart LR
 모바일은 Expo Go에 포함된 `expo-audio` 플레이어로 선택한 음성 파일의 길이를 읽고 즉시 플레이어를 해제한다. 앱은 녹음 기능을 제공하지 않으며 마이크 권한도 요청하지 않는다. 음성 길이가 없거나 `15분`, `25MB` 기준을 넘으면 STT로 보내지 않고 상담자 직접 확인으로 남긴다.
 
 학생이 생성한 사건은 DB에서 항상 `synthetic=false`로 강제한다. 제출 이후 학생 수정과 추가 업로드는 잠그며, 서비스 역할의 내부 상태 변경은 학생 전용 보호 로직과 분리한다. Edge Function은 파일 크기와 유형을 검증하고, DB insert 트리거는 사건 행 잠금 안에서 기관별 파일 수·크기 제한을 다시 확인한다. 상담자 직접 가져오기는 `claim_case()`, 관리자 배정·재배정은 `assign_case()`가 원자적으로 처리한다. 상담자는 활성 배정된 사건만 `assigned → in_review → completed`로 전이하거나 학생 수정 상태로 재개방할 수 있다. `schedule_case_deletion()`은 사건을 즉시 숨기고 기관별 복구 기간 뒤 purge 시각을 기록한다. `cases_ready_for_purge()`는 삭제 예약 시각이 지난 사건과 기관별 보관 기간이 지난 사건을 사건 행 잠금과 `purge_started_at` lease로 원자 예약한다. 겹친 cron은 같은 사건을 다시 받지 않고 중단된 lease는 `10분` 뒤 회수한다. `purge-deleted`는 원본 파일 제거가 성공하면 `finalize_case_purge()`로 구조화 데이터 삭제와 최소 감사 로그 기록을 한 트랜잭션으로 확정한다. 기존 사건·증거 감사 흔적은 기관 범위의 `case.purged` 또는 `case.retention_purged` 기록 하나로 축소한다.
+
+학생 인계 코드는 `create-case-handoff-code`가 생성한다. 함수는 제출·배정·검토·완료 상태의 학생 본인 사건만 허용하고, 기존 미사용 코드를 폐기한 뒤 `case_handoff_codes`에 해시와 만료 시각을 저장한다. 직원 웹은 `redeem-case-handoff-code`를 호출한다. 실제 사용 처리는 `redeem_case_handoff_code()` RPC에서 코드 행을 잠그고 만료·폐기·사용 여부와 기관 범위를 확인한 뒤 한 번만 완료한다. 상담자가 입력한 경우 제출 대기 사건만 원자 배정하고, 기관 관리자가 입력한 경우 사건 확인 뒤 배정 UI로 이어진다.
+
+관계도 수동 배치는 `people.position_x`, `position_y`, `position_locked`에 저장한다. `save-relation-layout`은 상담자·기관 관리자·플랫폼 관리자 권한을 확인하고 같은 사건의 노드만 0~100 좌표 범위로 갱신한다. 외부기관 읽기 전용 사건철 공유는 아직 구현하지 않고, 내부 사건철과 PDF 요약 고도화 뒤 별도 보안 검토 항목으로 유지한다.
 
 ## Input and session guards
 

@@ -13,6 +13,7 @@ import {
   View,
 } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
+import * as Clipboard from 'expo-clipboard';
 import { createAudioPlayer } from 'expo-audio';
 import {
   EvidenceAsset,
@@ -25,6 +26,7 @@ import { SecureDraftStore } from '../src/draftStore';
 import { MemoUpdateQueue } from '../src/memoUpdateQueue';
 import {
   StudentApiClient,
+  type HandoffCodeResult,
   type RemoteFact,
   type RemoteQuestion,
 } from '../src/studentApi';
@@ -82,6 +84,8 @@ export default function StudentWizard() {
   const [caseId, setCaseId] = useState(DEMO_CASE_ID);
   const [loginError, setLoginError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [handoffCode, setHandoffCode] = useState<HandoffCodeResult | null>(null);
+  const [handoffBusy, setHandoffBusy] = useState(false);
   const [uploadingEvidence, setUploadingEvidence] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const submissionInFlight = useRef(false);
@@ -129,6 +133,7 @@ export default function StudentWizard() {
     setAnalysisRequired(false);
     setSubmitted(locked);
     setDeleteRequested(false);
+    setHandoffCode(null);
     setRestored(false);
     if (locked) {
       await refreshConnectedData(record.id);
@@ -293,6 +298,14 @@ export default function StudentWizard() {
               ? '삭제 요청이 접수되어 화면에서 즉시 숨겼어요. 7일 복구 기간 뒤 원본까지 제거됩니다.'
               : '상담자가 내용을 확인합니다. 다시 수정해야 할 때는 상담자가 기록을 재개방합니다.'}
           </Text>
+          <HandoffCodeCard
+            busy={handoffBusy}
+            code={handoffCode}
+            connected={studentApi.connected}
+            disabled={deleteRequested}
+            onCopy={(code) => void copyHandoffCode(code)}
+            onCreate={() => void createHandoffCode(caseId, setHandoffBusy, setHandoffCode)}
+          />
           {!deleteRequested && studentApi.connected && (
             <SecondaryButton
               disabled={busy}
@@ -369,6 +382,56 @@ function SafetyStep() {
         <Text style={styles.listText}>✓ 빠진 정보는 질문으로 다시 확인합니다.</Text>
         <Text style={styles.listText}>✓ AI가 잘잘못이나 법률 판단을 내리지 않습니다.</Text>
       </View>
+    </View>
+  );
+}
+
+function HandoffCodeCard({
+  busy,
+  code,
+  connected,
+  disabled,
+  onCopy,
+  onCreate,
+}: {
+  busy: boolean;
+  code: HandoffCodeResult | null;
+  connected: boolean;
+  disabled: boolean;
+  onCopy: (code: string) => void;
+  onCreate: () => void;
+}) {
+  return (
+    <View style={styles.card}>
+      <Text style={styles.cardTitle}>관리자 전달 코드</Text>
+      <Text style={styles.listText}>
+        상담자나 기관 관리자에게 이 코드를 전달하면 웹에서 사건을 확인하고 배정할 수 있습니다. 코드는 1회용이며 새로 만들면 이전 코드는 사용할 수 없습니다.
+      </Text>
+      {!connected ? (
+        <Text style={styles.caption}>Supabase 연결 모드에서 제출된 사건만 인계 코드를 만들 수 있습니다.</Text>
+      ) : code ? (
+        <View style={styles.handoffCodeBox}>
+          <Text style={styles.handoffCode}>{code.code}</Text>
+          <Text style={styles.caption}>만료: {new Date(code.expiresAt).toLocaleString('ko-KR')}</Text>
+        </View>
+      ) : (
+        <Text style={styles.caption}>아직 생성된 인계 코드가 없습니다.</Text>
+      )}
+      <View style={styles.handoffActions}>
+        <SecondaryButton
+          disabled={!connected || busy || disabled}
+          label={busy ? '생성 중...' : code ? '새 코드 만들기' : '코드 만들기'}
+          onPress={onCreate}
+        />
+        {code && (
+          <SecondaryButton
+            disabled={busy || disabled}
+            label="코드 복사"
+            onPress={() => onCopy(code.code)}
+          />
+        )}
+      </View>
+      {disabled && <Text style={styles.errorText}>삭제 요청된 사건은 새 인계 코드를 만들 수 없습니다.</Text>}
     </View>
   );
 }
@@ -705,6 +768,27 @@ async function saveAnswer(
   }
 }
 
+async function createHandoffCode(
+  caseId: string,
+  setBusy: (value: boolean) => void,
+  setCode: (value: HandoffCodeResult) => void,
+) {
+  setBusy(true);
+  try {
+    const result = await studentApi.createHandoffCode(caseId);
+    setCode(result);
+  } catch (error) {
+    Alert.alert('인계 코드 확인', error instanceof Error ? error.message : '인계 코드를 만들 수 없습니다.');
+  } finally {
+    setBusy(false);
+  }
+}
+
+async function copyHandoffCode(code: string) {
+  await Clipboard.setStringAsync(code);
+  Alert.alert('복사 완료', '관리자에게 전달할 인계 코드가 복사되었습니다.');
+}
+
 async function refreshLockedCase(
   caseId: string,
   setBusy: (value: boolean) => void,
@@ -922,6 +1006,9 @@ const styles = StyleSheet.create({
   questionActionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   questionDiscardButton: { alignSelf: 'flex-start', borderWidth: 1, borderColor: '#d7e0eb', borderRadius: 10, backgroundColor: '#f8fafc', paddingHorizontal: 11, paddingVertical: 8 },
   questionDiscardText: { color: '#61738b', fontSize: 12, fontWeight: '900' },
+  handoffCodeBox: { alignItems: 'center', borderWidth: 1, borderColor: '#b8c9df', borderRadius: 14, backgroundColor: '#f3f7fc', padding: 14 },
+  handoffCode: { color: '#073b78', fontSize: 28, fontWeight: '900', letterSpacing: 2 },
+  handoffActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   errorText: { color: '#b23d4a', fontSize: 12, fontWeight: '700', lineHeight: 18 },
   disabledButton: { opacity: 0.62 },
   factRow: { gap: 3, borderTopWidth: 1, borderTopColor: '#e3e9f1', paddingTop: 9 },

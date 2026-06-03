@@ -218,6 +218,9 @@ export class WebApiClient {
           label: person.anonymous_label,
           relation: person.relation,
           tone: person.tone,
+          positionX: person.position_x,
+          positionY: person.position_y,
+          positionLocked: person.position_locked,
         })),
         relations: relations.map((relation) => ({
           id: relation.id,
@@ -257,6 +260,14 @@ export class WebApiClient {
       method: 'POST',
       body: JSON.stringify({ case_id_input: caseId, counselor_id_input: counselorId }),
     });
+  }
+
+  async redeemHandoffCode(code: string): Promise<{ caseId: string; assignmentId: string | null; status: string }> {
+    return this.edge<{ caseId: string; assignmentId: string | null; status: string }>('redeem-case-handoff-code', { code });
+  }
+
+  async saveRelationLayout(caseId: string, positions: Array<{ id: string; x: number; y: number; locked?: boolean }>): Promise<void> {
+    await this.edge('save-relation-layout', { caseId, positions });
   }
 
   async addNote(caseId: string, body: string): Promise<void> {
@@ -409,7 +420,7 @@ type FactEvidenceRow = { fact_block_id: string; evidence_id: string };
 type EvidenceRow = { id: string; case_id: string; file_name: string; mime_type: string; size_bytes: number; kind: ConstructorParameters<typeof EvidenceAsset>[5]; storage_path: string; synthetic: boolean; uploaded_at: string; processing_status: ConstructorParameters<typeof EvidenceAsset>[9]; extracted_text: string | null };
 type JobRow = { id: string; evidence_id: string; status: ConstructorParameters<typeof ProcessingJob>[2]; attempts: number; message: string; updated_at: string };
 type QuestionRow = { id: string; case_id: string; fact_block_id: string | null; field: ConstructorParameters<typeof MissingInfoQuestion>[3]; prompt: string; answer: string | null; resolved: boolean };
-type PersonRow = { id: string; case_id: string; anonymous_label: string; relation: string; tone: PersonNode['tone'] };
+type PersonRow = { id: string; case_id: string; anonymous_label: string; relation: string; tone: PersonNode['tone']; position_x: number | null; position_y: number | null; position_locked: boolean };
 type RelationRow = { id: string; case_id: string; from_person_id: string; to_person_id: string; label: string; indirect: boolean };
 type AuditRow = { id: string; institution_id: string | null; actor_id: string | null; action: string; target_type: string; target_id: string; created_at: string };
 type NoteRow = { id: string; case_id: string; author_id: string; body: string; created_at: string };

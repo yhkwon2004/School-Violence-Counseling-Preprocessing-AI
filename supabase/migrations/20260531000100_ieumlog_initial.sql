@@ -55,6 +55,24 @@ create table public.cases (
   updated_at timestamptz not null default now()
 );
 
+create table public.case_handoff_codes (
+  id uuid primary key default gen_random_uuid(),
+  case_id uuid not null references public.cases(id) on delete cascade,
+  institution_id uuid not null references public.institutions(id) on delete cascade,
+  created_by uuid not null references public.profiles(id) on delete restrict,
+  code_hash text not null unique,
+  expires_at timestamptz not null,
+  redeemed_by uuid references public.profiles(id) on delete set null,
+  redeemed_at timestamptz,
+  revoked_at timestamptz,
+  created_at timestamptz not null default now(),
+  constraint handoff_code_expires_after_creation check (expires_at > created_at)
+);
+
+create index case_handoff_codes_case_active
+  on public.case_handoff_codes(case_id)
+  where redeemed_at is null and revoked_at is null;
+
 create table public.assignments (
   id uuid primary key default gen_random_uuid(),
   case_id uuid not null references public.cases(id) on delete cascade,
@@ -90,6 +108,9 @@ create table public.people (
   anonymous_label text not null,
   relation text not null,
   tone text not null default 'neutral',
+  position_x numeric(5,2) check (position_x is null or position_x between 0 and 100),
+  position_y numeric(5,2) check (position_y is null or position_y between 0 and 100),
+  position_locked boolean not null default false,
   created_at timestamptz not null default now()
 );
 
@@ -670,6 +691,112 @@ $$;
 
 grant execute on function public.assign_case(uuid, uuid) to authenticated;
 
+create or replace function public.redeem_case_handoff_code(code_hash_input text, actor_id_input uuid)
+returns table(case_id uuid, assignment_id uuid, status public.case_status)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  selected_code public.case_handoff_codes;
+  selected_case public.cases;
+  actor public.profiles;
+  claimed_assignment public.assignments;
+begin
+  select * into actor
+  from public.profiles
+  where id = actor_id_input
+    and active = true;
+
+  if actor.id is null or actor.role not in ('counselor', 'institution_admin') then
+    raise exception 'Only institution staff can redeem handoff codes';
+  end if;
+
+  if not exists (
+    select 1 from public.institutions
+    where id = actor.institution_id
+      and active = true
+  ) then
+    raise exception 'Institution is unavailable';
+  end if;
+
+  select * into selected_code
+  from public.case_handoff_codes
+  where public.case_handoff_codes.code_hash = code_hash_input
+  for update;
+
+  if selected_code.id is null
+    or selected_code.revoked_at is not null
+    or selected_code.redeemed_at is not null
+    or selected_code.expires_at <= now() then
+    raise exception 'Handoff code is unavailable';
+  end if;
+
+  select * into selected_case
+  from public.cases
+  where public.cases.id = selected_code.case_id
+  for update;
+
+  if selected_case.id is null
+    or selected_case.status = 'deletion_scheduled'
+    or selected_case.institution_id is distinct from actor.institution_id then
+    raise exception 'Case is unavailable';
+  end if;
+
+  update public.case_handoff_codes
+  set redeemed_by = actor_id_input,
+      redeemed_at = now()
+  where public.case_handoff_codes.id = selected_code.id;
+
+  if actor.role = 'counselor' then
+    if selected_case.status <> 'submitted' then
+      raise exception 'Only submitted waiting cases can be claimed by counselors';
+    end if;
+
+    if exists (
+      select 1 from public.assignments
+      where public.assignments.case_id = selected_case.id
+        and public.assignments.active = true
+    ) then
+      raise exception 'Case was already claimed';
+    end if;
+
+    insert into public.assignments(case_id, counselor_id, assigned_by)
+    values (selected_case.id, actor_id_input, actor_id_input)
+    returning * into claimed_assignment;
+
+    update public.cases
+    set status = 'assigned'
+    where public.cases.id = selected_case.id
+      and public.cases.status = 'submitted'
+    returning public.cases.status into status;
+    assignment_id := claimed_assignment.id;
+  else
+    assignment_id := null;
+    status := selected_case.status;
+  end if;
+
+  if status is null then
+    select public.cases.status into status from public.cases where public.cases.id = selected_case.id;
+  end if;
+  case_id := selected_case.id;
+
+  insert into public.audit_logs(institution_id, actor_id, action, target_type, target_id, metadata)
+  values (
+    selected_case.institution_id,
+    actor_id_input,
+    'case.handoff_redeemed',
+    'case',
+    selected_case.id::text,
+    jsonb_build_object('handoff_code_id', selected_code.id, 'actor_role', actor.role)
+  );
+  return next;
+end;
+$$;
+
+revoke all on function public.redeem_case_handoff_code(text, uuid) from public, anon, authenticated;
+grant execute on function public.redeem_case_handoff_code(text, uuid) to service_role;
+
 create or replace function public.submit_case_record(case_id_input uuid, memo_input text)
 returns public.cases
 language plpgsql
@@ -901,6 +1028,7 @@ alter table public.institutions enable row level security;
 alter table public.profiles enable row level security;
 alter table public.institution_settings enable row level security;
 alter table public.cases enable row level security;
+alter table public.case_handoff_codes enable row level security;
 alter table public.assignments enable row level security;
 alter table public.fact_blocks enable row level security;
 alter table public.people enable row level security;

@@ -3,8 +3,11 @@ import {
   AccessPolicy,
   CaseRecord,
   CompositeAnalyzer,
+  CaseHandoffCode,
   EvidenceAsset,
   RetentionPolicy,
+  buildRelationGraphLayout,
+  focusRelationGraph,
   RuleBasedAnalyzer,
   createSyntheticDataset,
 } from './index';
@@ -27,6 +30,66 @@ describe('CaseRecord', () => {
     expect(scheduled.purgeAt).toBe('2026-06-07T00:00:00.000Z');
   });
 });
+
+describe('CaseHandoffCode', () => {
+  it('can be created only after a student submits the reviewed record', () => {
+    expect(CaseHandoffCode.canCreateForStatus('student_review')).toBe(false);
+    expect(CaseHandoffCode.canCreateForStatus('submitted')).toBe(true);
+    expect(CaseHandoffCode.canCreateForStatus('assigned')).toBe(true);
+    expect(CaseHandoffCode.canCreateForStatus('in_review')).toBe(true);
+    expect(CaseHandoffCode.canCreateForStatus('completed')).toBe(true);
+    expect(CaseHandoffCode.canCreateForStatus('deletion_scheduled')).toBe(false);
+  });
+});
+
+describe('RelationGraphLayout', () => {
+  it('anchors directed edges on node boundaries instead of centers', () => {
+    const dataset = createSyntheticDataset();
+    const record = dataset.cases[0]!;
+    const layout = buildRelationGraphLayout(
+      dataset.people.filter((person) => person.caseId === record.id),
+      dataset.relations.filter((relation) => relation.caseId === record.id),
+      [],
+      10,
+    );
+    const edge = layout.edges[0]!;
+    const source = layout.nodes.find((node) => node.id === edge.fromPersonId)!;
+    const target = layout.nodes.find((node) => node.id === edge.toPersonId)!;
+
+    expect(edge.from.x).not.toBe(source.x);
+    expect(edge.to.x).not.toBe(target.x);
+    expect(edge.from.x).toBeGreaterThan(source.x);
+    expect(edge.to.x).toBeLessThan(target.x);
+    expect(edge.length).toBeLessThan(Math.hypot(target.x - source.x, target.y - source.y));
+  });
+
+  it('keeps only first-degree graph elements when focusing a node', () => {
+    const dataset = createSyntheticDataset();
+    const record = dataset.cases[0]!;
+    const layout = buildRelationGraphLayout(
+      dataset.people.filter((person) => person.caseId === record.id),
+      dataset.relations.filter((relation) => relation.caseId === record.id),
+    );
+
+    const focused = focusRelationGraph(layout, { kind: 'node', id: 'actor-b' });
+    expect(focused.nodes.map((node) => node.id).sort()).toEqual(['actor-b', 'victim']);
+    expect(focused.edges).toHaveLength(1);
+  });
+
+  it('keeps only the selected relation and its endpoints when focusing an edge', () => {
+    const dataset = createSyntheticDataset();
+    const record = dataset.cases[0]!;
+    const layout = buildRelationGraphLayout(
+      dataset.people.filter((person) => person.caseId === record.id),
+      dataset.relations.filter((relation) => relation.caseId === record.id),
+    );
+
+    const focused = focusRelationGraph(layout, { kind: 'edge', id: 'relation-1' });
+    expect(focused.nodes.map((node) => node.id).sort()).toEqual(['actor-b', 'victim']);
+    expect(focused.edges.map((edge) => edge.id)).toEqual(['relation-1']);
+  });
+});
+
 describe('AccessPolicy', () => {
   it('separates institution access while allowing platform administrators', () => {
     const dataset = createSyntheticDataset();

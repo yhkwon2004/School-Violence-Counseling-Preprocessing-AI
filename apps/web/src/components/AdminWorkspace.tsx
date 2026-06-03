@@ -214,11 +214,36 @@ function UsersPanel({
 }
 
 function AssignmentsPanel() {
-  const { assignCase, dataset } = useDemoApp();
+  const { assignCase, dataset, redeemHandoffCode } = useDemoApp();
   const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [handoffDraft, setHandoffDraft] = useState('');
+  const [handoffBusy, setHandoffBusy] = useState(false);
+  const [highlightedCaseId, setHighlightedCaseId] = useState<string | null>(null);
+
+  async function submitHandoffCode() {
+    if (!handoffDraft.trim()) return;
+    setHandoffBusy(true);
+    try {
+      const result = await redeemHandoffCode(handoffDraft);
+      setHighlightedCaseId(result.caseId);
+      setHandoffDraft('');
+      window.alert('인계 코드와 일치하는 사건을 찾았습니다. 담당 상담자를 배정해 주세요.');
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : '인계 코드를 확인할 수 없습니다.');
+    } finally {
+      setHandoffBusy(false);
+    }
+  }
+
   return (
     <>
       <AdminHeading title="사건 배정" copy="관리자 배정과 상담자 직접 가져오기를 모두 지원합니다." />
+      <form className="handoff-admin-form" onSubmit={(event) => { event.preventDefault(); void submitHandoffCode(); }}>
+        <input onChange={(event) => setHandoffDraft(event.target.value)} placeholder="학생 앱 인계 코드 입력: ABCDE-FGHIJ" value={handoffDraft} />
+        <button className="button primary" disabled={handoffBusy || !handoffDraft.trim()} type="submit">
+          {handoffBusy ? '확인 중' : '인계 코드로 사건 찾기'}
+        </button>
+      </form>
       <article className="panel table-panel">
         <table>
           <thead><tr><th>사건</th><th>학생</th><th>상태</th><th>담당 상담자</th></tr></thead>
@@ -232,7 +257,7 @@ function AssignmentsPanel() {
               const draft = drafts[record.id] ?? assignment?.counselorId ?? '';
               const assignable = ['submitted', 'assigned', 'in_review', 'reopened'].includes(record.status);
               return (
-                <tr key={record.id}>
+                <tr className={highlightedCaseId === record.id ? 'highlighted-row' : ''} key={record.id}>
                   <td>{caseCode(record.id)}</td>
                   <td>{record.anonymousLabel}</td>
                   <td>{record.status}</td>

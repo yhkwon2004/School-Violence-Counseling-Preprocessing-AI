@@ -11,7 +11,7 @@
     "test": "npm run test --workspace @ieumlog/domain && npm run test:mobile-core && npm run test:web-core && npm run test:edge",
     "test:mobile-core": "vitest run apps/mobile/src/draftChunks.test.ts apps/mobile/src/memoUpdateQueue.test.ts apps/mobile/src/studentFlow.test.ts",
     "test:web-core": "vitest run apps/web/src/evidenceMap.test.ts",
-    "test:edge": "vitest run supabase/functions/_shared/openai.test.ts",
+    "test:edge": "vitest run supabase/functions/_shared/openai.test.ts supabase/functions/_shared/handoff.test.ts",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "dev:web": "npm run dev --workspace @ieumlog/web --",
     "dev:mobile": "npm run start --workspace @ieumlog/mobile --",

@@ -38,6 +38,9 @@ export type PersonNode = {
   label: string;
   relation: string;
   tone: 'primary' | 'danger' | 'neutral' | 'support';
+  positionX?: number | null;
+  positionY?: number | null;
+  positionLocked?: boolean;
 };
 
 export type RelationEdge = {

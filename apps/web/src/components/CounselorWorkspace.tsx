@@ -13,9 +13,17 @@ import {
   Search,
   X,
 } from 'lucide-react';
-import { useState } from 'react';
-import type { ReactNode } from 'react';
-import type { CaseRecord, EvidenceAsset } from '@ieumlog/domain';
+import { useMemo, useState } from 'react';
+import type { PointerEvent, ReactNode } from 'react';
+import {
+  buildRelationGraphLayout,
+  focusRelationGraph,
+  type CaseRecord,
+  type EvidenceAsset,
+  type FocusedGraphElement,
+  type RelationGraphLayout,
+  type RelationGraphNode,
+} from '@ieumlog/domain';
 import { useDemoApp } from '../state/DemoAppContext';
 import { evidenceFactLabel } from '../evidenceMap';
 
@@ -30,10 +38,12 @@ const tabs: { id: DetailTab; label: string }[] = [
 ];
 
 export function CounselorWorkspace() {
-  const { activeProfile, addNote, claimCase, completeCase, dataset, notes, reopenCase, startReview } = useDemoApp();
+  const { activeProfile, addNote, claimCase, completeCase, dataset, notes, redeemHandoffCode, reopenCase, startReview } = useDemoApp();
   const [tab, setTab] = useState<DetailTab>('relations');
   const [noteDraft, setNoteDraft] = useState('');
   const [query, setQuery] = useState('');
+  const [handoffDraft, setHandoffDraft] = useState('');
+  const [handoffBusy, setHandoffBusy] = useState(false);
   const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null);
   const normalizedQuery = query.trim().toLowerCase();
   const matchesQuery = (record: CaseRecord) => (
@@ -64,6 +74,21 @@ export function CounselorWorkspace() {
     setNoteDraft('');
   }
 
+  async function submitHandoffCode() {
+    if (!handoffDraft.trim()) return;
+    setHandoffBusy(true);
+    try {
+      const result = await redeemHandoffCode(handoffDraft);
+      setSelectedCaseId(result.caseId);
+      setHandoffDraft('');
+      window.alert('인계 코드로 사건을 가져왔습니다.');
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : '인계 코드를 확인할 수 없습니다.');
+    } finally {
+      setHandoffBusy(false);
+    }
+  }
+
   return (
     <div className="workspace counselor-workspace">
       <aside className="case-sidebar">
@@ -76,6 +101,15 @@ export function CounselorWorkspace() {
           <span className="sr-only">사건 검색</span>
           <input onChange={(event) => setQuery(event.target.value)} placeholder="사건 검색" value={query} />
         </label>
+        <form className="handoff-code-form" onSubmit={(event) => { event.preventDefault(); void submitHandoffCode(); }}>
+          <label>
+            <span>인계 코드</span>
+            <input onChange={(event) => setHandoffDraft(event.target.value)} placeholder="ABCDE-FGHIJ" value={handoffDraft} />
+          </label>
+          <button className="button primary" disabled={handoffBusy || !handoffDraft.trim()} type="submit">
+            {handoffBusy ? '확인 중' : '코드로 가져오기'}
+          </button>
+        </form>
         <section>
           <div className="section-heading">
             <strong>내 사건</strong>
@@ -149,7 +183,7 @@ export function CounselorWorkspace() {
             ))}
           </nav>
 
-          {tab === 'relations' && <RelationsPanel caseId={caseRecord.id} />}
+          {tab === 'relations' && <AdvancedRelationsPanel caseId={caseRecord.id} />}
           {tab === 'timeline' && <TimelinePanel caseId={caseRecord.id} />}
           {tab === 'evidence' && <EvidencePanel caseId={caseRecord.id} />}
           {tab === 'questions' && <QuestionsPanel caseId={caseRecord.id} />}
@@ -173,6 +207,9 @@ function PrintCaseSummary({ caseRecord }: { caseRecord: CaseRecord }) {
   const facts = dataset.factBlocks.filter((block) => block.caseId === caseRecord.id);
   const evidence = dataset.evidence.filter((asset) => asset.caseId === caseRecord.id);
   const questions = dataset.questions.filter((question) => question.caseId === caseRecord.id);
+  const people = dataset.people.filter((person) => person.caseId === caseRecord.id);
+  const relations = dataset.relations.filter((relation) => relation.caseId === caseRecord.id);
+  const personById = new Map(people.map((person) => [person.id, person]));
 
   return (
     <article className="print-case-summary">
@@ -198,6 +235,16 @@ function PrintCaseSummary({ caseRecord }: { caseRecord: CaseRecord }) {
             </li>
           ))}
         </ol>
+      </PrintSection>
+      <PrintSection title="관계도">
+        <ul className="print-relation-list">
+          {relations.map((relation) => (
+            <li key={relation.id}>
+              <strong>{personById.get(relation.fromPersonId)?.label ?? relation.fromPersonId} → {personById.get(relation.toPersonId)?.label ?? relation.toPersonId}</strong>
+              <span>{relation.label}{relation.indirect ? ' · 간접 관계' : ''}</span>
+            </li>
+          ))}
+        </ul>
       </PrintSection>
       <PrintSection title="증거 목록">
         <ul className="print-evidence-list">
@@ -270,6 +317,259 @@ function RelationsPanel({ caseId }: { caseId: string }) {
       <NotesCard caseId={caseId} />
     </div>
   );
+}
+
+function AdvancedRelationsPanel({ caseId }: { caseId: string }) {
+  const { dataset, saveRelationLayout } = useDemoApp();
+  const [draftPositions, setDraftPositions] = useState<Record<string, { x: number; y: number }>>({});
+  const [draggingNodeId, setDraggingNodeId] = useState<string | null>(null);
+  const [focused, setFocused] = useState<FocusedGraphElement | null>(null);
+  const [saving, setSaving] = useState(false);
+  const people = dataset.people.filter((person) => person.caseId === caseId);
+  const relations = dataset.relations.filter((relation) => relation.caseId === caseId);
+  const personById = new Map(people.map((person) => [person.id, person]));
+  const savedPositions = people.flatMap((person) => {
+    const draft = draftPositions[person.id];
+    const x = draft?.x ?? person.positionX;
+    const y = draft?.y ?? person.positionY;
+    return typeof x === 'number' && typeof y === 'number'
+      ? [{ id: person.id, x, y, locked: person.positionLocked }]
+      : [];
+  });
+  const layout = useMemo(
+    () => buildRelationGraphLayout(people, relations, savedPositions),
+    [people, relations, savedPositions],
+  );
+  const dirty = Object.keys(draftPositions).length > 0;
+
+  function moveDraggingNode(event: PointerEvent<SVGSVGElement>) {
+    if (!draggingNodeId) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const x = ((event.clientX - rect.left) / rect.width) * 100;
+    const y = ((event.clientY - rect.top) / rect.height) * 100;
+    setDraftPositions((current) => ({
+      ...current,
+      [draggingNodeId]: { x: clampGraphCoordinate(x), y: clampGraphCoordinate(y) },
+    }));
+  }
+
+  async function saveLayout() {
+    setSaving(true);
+    try {
+      await saveRelationLayout(caseId, layout.nodes.map((node) => ({
+        id: node.id,
+        x: node.x,
+        y: node.y,
+        locked: true,
+      })));
+      setDraftPositions({});
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : '관계도 배치를 저장할 수 없습니다.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="content-grid relations-layout">
+      <article className="panel relationship-panel advanced-relationship-panel">
+        <div className="relationship-title-row">
+          <PanelTitle icon={Network} title="관계도" subtitle="화살표 방향과 연결 근거를 확인합니다" />
+          <button className="button secondary compact-button" disabled={!dirty || saving} onClick={() => void saveLayout()} type="button">
+            {saving ? '저장 중' : '배치 저장'}
+          </button>
+        </div>
+        <div className="relation-map advanced-relation-map">
+          <RelationGraphSvg
+            draggingNodeId={draggingNodeId}
+            layout={layout}
+            onMove={moveDraggingNode}
+            onSelect={setFocused}
+            onStartDrag={setDraggingNodeId}
+            onStopDrag={() => setDraggingNodeId(null)}
+          />
+        </div>
+        <p className="relation-help">노드를 끌어 위치를 보정하고, 원 또는 화살표를 클릭하면 해당 관계만 확대해서 볼 수 있습니다.</p>
+        <ul className="relation-legend">
+          {relations.map((relation) => (
+            <li key={relation.id}>
+              <strong>{personById.get(relation.fromPersonId)?.label ?? relation.fromPersonId} → {personById.get(relation.toPersonId)?.label ?? relation.toPersonId}</strong>
+              <span>{relation.label}{relation.indirect ? ' · 간접 관계' : ''}</span>
+            </li>
+          ))}
+        </ul>
+      </article>
+      <TimelineCard caseId={caseId} compact />
+      <EvidenceCard caseId={caseId} compact />
+      <NotesCard caseId={caseId} />
+      {focused && (
+        <RelationFocusDialog
+          caseId={caseId}
+          layout={layout}
+          onClose={() => setFocused(null)}
+          target={focused}
+        />
+      )}
+    </div>
+  );
+}
+
+function RelationGraphSvg({
+  draggingNodeId,
+  layout,
+  onMove,
+  onSelect,
+  onStartDrag,
+  onStopDrag,
+}: {
+  draggingNodeId?: string | null;
+  layout: RelationGraphLayout;
+  onMove?: (event: PointerEvent<SVGSVGElement>) => void;
+  onSelect?: (target: FocusedGraphElement) => void;
+  onStartDrag?: (id: string) => void;
+  onStopDrag?: () => void;
+}) {
+  return (
+    <svg
+      aria-label="정밀 관계도"
+      className="relation-svg"
+      onPointerLeave={onStopDrag}
+      onPointerMove={onMove}
+      onPointerUp={onStopDrag}
+      role="img"
+      viewBox="0 0 100 100"
+    >
+      <defs>
+        <marker id="relation-arrow" markerHeight="5" markerWidth="5" orient="auto" refX="4.5" refY="2.5">
+          <path d="M0,0 L5,2.5 L0,5 Z" />
+        </marker>
+      </defs>
+      {layout.edges.map((edge) => (
+        <g className="relation-edge-group" key={edge.id}>
+          <line
+            className={`relation-svg-edge ${edge.indirect ? 'dashed' : ''}`}
+            markerEnd="url(#relation-arrow)"
+            onClick={() => onSelect?.({ kind: 'edge', id: edge.id })}
+            x1={edge.from.x}
+            x2={edge.to.x}
+            y1={edge.from.y}
+            y2={edge.to.y}
+          />
+          <text className="relation-edge-label" x={edge.mid.x} y={edge.mid.y - 1.8}>{edge.label}</text>
+        </g>
+      ))}
+      {layout.nodes.map((node) => (
+        <RelationGraphNodeView
+          dragging={draggingNodeId === node.id}
+          key={node.id}
+          node={node}
+          onSelect={onSelect}
+          onStartDrag={onStartDrag}
+        />
+      ))}
+    </svg>
+  );
+}
+
+function RelationGraphNodeView({
+  dragging,
+  node,
+  onSelect,
+  onStartDrag,
+}: {
+  dragging: boolean;
+  node: RelationGraphNode;
+  onSelect?: (target: FocusedGraphElement) => void;
+  onStartDrag?: (id: string) => void;
+}) {
+  const lines = node.label.split('\n');
+  return (
+    <g
+      className={`relation-svg-node ${node.tone} ${dragging ? 'dragging' : ''}`}
+      onClick={() => onSelect?.({ kind: 'node', id: node.id })}
+      onPointerDown={(event) => {
+        event.currentTarget.setPointerCapture(event.pointerId);
+        onStartDrag?.(node.id);
+      }}
+      role="button"
+      tabIndex={0}
+      transform={`translate(${node.x} ${node.y})`}
+    >
+      <circle r="8.5" />
+      {lines.map((line, index) => (
+        <text dy={index === 0 ? -1.2 : 3.1} key={`${node.id}-${line}`} textAnchor="middle">{line}</text>
+      ))}
+      <text className="relation-node-caption" dy="7.4" textAnchor="middle">{node.relation}</text>
+    </g>
+  );
+}
+
+function RelationFocusDialog({
+  caseId,
+  layout,
+  onClose,
+  target,
+}: {
+  caseId: string;
+  layout: RelationGraphLayout;
+  onClose: () => void;
+  target: FocusedGraphElement;
+}) {
+  const { dataset } = useDemoApp();
+  const focusedLayout = focusRelationGraph(layout, target);
+  const people = new Map(layout.nodes.map((node) => [node.id, node]));
+  const selectedNode = target.kind === 'node' ? people.get(target.id) : null;
+  const selectedEdge = target.kind === 'edge' ? layout.edges.find((edge) => edge.id === target.id) : null;
+  const labels = focusedLayout.nodes.flatMap((node) => node.label.split('\n').map((line) => line.replace(/[()]/g, '').trim()).filter(Boolean));
+  const relatedFacts = dataset.factBlocks.filter((fact) => (
+    fact.caseId === caseId
+    && labels.some((label) => `${fact.actor ?? ''} ${fact.target ?? ''} ${fact.action}`.includes(label.slice(0, 4)))
+  ));
+  return (
+    <div className="preview-backdrop" role="presentation">
+      <section aria-label="관계도 포커스" aria-modal="true" className="preview-dialog relation-focus-dialog" role="dialog">
+        <header>
+          <div>
+            <strong>{selectedNode?.label ?? selectedEdge?.label ?? '관계도 포커스'}</strong>
+            <small>{selectedEdge ? `${people.get(selectedEdge.fromPersonId)?.label ?? selectedEdge.fromPersonId} → ${people.get(selectedEdge.toPersonId)?.label ?? selectedEdge.toPersonId}` : selectedNode?.relation}</small>
+          </div>
+          <button aria-label="관계도 포커스 닫기" className="icon-action" onClick={onClose} type="button">
+            <X size={16} aria-hidden="true" />
+          </button>
+        </header>
+        <div className="relation-focus-body">
+          <div className="relation-focus-map">
+            <RelationGraphSvg layout={focusedLayout} />
+          </div>
+          <div className="casefile-panel">
+            <p className="eyebrow">Focused casefile</p>
+            <h3>선택 요소 주변 관계</h3>
+            <ul>
+              {focusedLayout.edges.map((edge) => (
+                <li key={edge.id}>
+                  <strong>{people.get(edge.fromPersonId)?.label ?? edge.fromPersonId} → {people.get(edge.toPersonId)?.label ?? edge.toPersonId}</strong>
+                  <span>{edge.label}{edge.indirect ? ' · 간접' : ''}</span>
+                </li>
+              ))}
+            </ul>
+            <h3>관련 후보 FactBlock</h3>
+            {relatedFacts.length ? relatedFacts.slice(0, 4).map((fact) => (
+              <div className="focus-fact" key={fact.id}>
+                <strong>진술 {fact.sequence}</strong>
+                <span>{fact.action}</span>
+                <small>{formatDate(fact.occurredAt)} · {fact.location ?? '장소 확인 필요'}</small>
+              </div>
+            )) : <p className="quiet-copy">직접 연결된 FactBlock 후보가 아직 없습니다.</p>}
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function clampGraphCoordinate(value: number) {
+  if (!Number.isFinite(value)) return 50;
+  return Math.max(8, Math.min(92, value));
 }
 
 function TimelinePanel({ caseId }: { caseId: string }) {

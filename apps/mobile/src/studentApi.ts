@@ -47,6 +47,11 @@ export type RemoteFact = {
   confirmed: boolean;
 };
 
+export type HandoffCodeResult = {
+  code: string;
+  expiresAt: string;
+};
+
 type StudentProfileRow = {
   id: string;
   institution_id: string;
@@ -295,6 +300,10 @@ export class StudentApiClient {
       method: 'POST',
       body: JSON.stringify({ case_id_input: caseId }),
     });
+  }
+
+  async createHandoffCode(caseId: string): Promise<HandoffCodeResult> {
+    return this.edge<HandoffCodeResult>('create-case-handoff-code', { caseId });
   }
 
   private async getStudentProfile(): Promise<StudentProfileRow> {
