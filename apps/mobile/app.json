@@ -4,8 +4,14 @@
     "slug": "ieumlog-student",
     "version": "0.1.0",
     "orientation": "portrait",
+    "icon": "./assets/icon.png",
     "scheme": "ieumlog",
     "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/logo.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
     "newArchEnabled": true,
     "plugins": [
       "expo-router",
@@ -21,14 +27,26 @@
     "android": {
       "package": "kr.ieumlog.student",
       "allowBackup": false,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
       "softwareKeyboardLayoutMode": "resize"
     },
     "ios": {
-      "bundleIdentifier": "kr.ieumlog.student"
+      "bundleIdentifier": "kr.ieumlog.student",
+      "icon": "./assets/icon.png"
     },
     "experiments": {
       "typedRoutes": true,
       "autolinkingModuleResolution": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "80ebbf4f-bc99-4b40-acf0-e6d1a1d11093"
+      }
+    },
+    "owner": "yhkwon2004"
   }
 }

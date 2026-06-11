@@ -6,6 +6,8 @@ dist
 .env.*.local
 .vercel
 coverage
+artifacts/
+*.apk
 *.log
 *.tsbuildinfo
 apps/mobile/.expo
@@ -15,3 +17,5 @@ supabase/.branches
 supabase/.temp
 supabase/functions/.env.deploy
 supabase/.env.hosted
+
+.vercel

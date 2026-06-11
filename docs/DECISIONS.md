@@ -1,5 +1,59 @@
 # 이음로그 결정 기록
 
+## 2026-06-05
+
+### Offline-first mobile recording
+
+- 학생 앱은 네트워크 실패 시 로그인 화면에서 오프라인 기록 모드로 진입할 수 있다.
+- 오프라인 모드는 서버 사건 원장이 아니며, 학생 기기 안의 임시 사건철과 동기화 대기 상태다.
+- 앱은 인터넷 복구 뒤 학생 계정으로 다시 로그인해 서버 사건을 만들거나 복원하고, 메모·가능한 증거 파일·서버 분석·제출 의사를 순서대로 동기화한다.
+- 증거 원본은 오프라인에 복제하지 않는다. 파일 URI를 다시 읽을 수 없으면 메모와 분석은 서버로 보내고 파일은 다시 선택하게 안내한다.
+
+### On-device AI boundary
+
+- 현재 APK는 Expo managed 환경에서 안정적으로 실행 가능한 규칙 기반 온디바이스 분석 엔진을 사용한다.
+- 이 엔진은 외부 AI나 서버 없이 FactBlock, 확인 질문, 로컬 인물·관계 힌트, 타임라인을 만든다.
+- 실제 네이티브 LLM 런타임은 앱 크기, 성능, 발열, 개인정보, 모델 업데이트 정책 검증 뒤 `OnDeviceAiEngine` 뒤에 교체한다.
+
+### SecureStore key compatibility
+
+- Expo SecureStore 키에는 `:`를 사용하지 않는다.
+- 세션 키, 초안 청크 키, 오프라인 동기화 키는 `secureStoreKey()`로 만들고 허용되지 않는 문자는 `_`로 바꾼다.
+- Android에서 `Invalid key provided to SecureStore`가 로그인 실패처럼 보이지 않게 세션 저장 경계를 먼저 고정한다.
+
+### Mobile login demo compatibility
+
+- hosted Supabase는 샘플 학생 `WEE-24-0510`의 비밀번호를 `IeumlogDemo2026!`로 유지한다.
+- 사용자가 기존 로컬 시연 비밀번호 `demo1234`를 hosted 앱에 입력하는 경우가 많아, 샘플 ID에 한해서만 앱 화면 helper가 hosted 비밀번호로 변환한다.
+- 실제 학생 ID나 임의 계정에는 비밀번호 변환을 적용하지 않는다.
+- 학생 로그인 전 Edge Function 호출에도 공개 key bearer를 붙여 hosted pre-auth 요청이 인증 헤더 부재로 실패하지 않게 한다.
+
+### Mobile casefile preview
+
+- 학생 앱 안에서는 상담자용 SVG 편집기를 넣지 않고, React Native 기본 View 기반의 읽기 전용 사건철 미리보기를 제공한다.
+- 홈, 최종 확인, 제출 완료 화면에서 인물 관계 칩, 관계 흐름, FactBlock 타임라인을 함께 보여준다.
+- 노드 드래그, 배치 저장, 사건 배정 같은 직원 기능은 계속 웹에만 둔다.
+
+### Regenerated brand assets
+
+- 모바일 아이콘과 화면 로고, 웹 public 로고는 같은 생성 스크립트에서 PNG로 만든다.
+- 앱 아이콘은 작은 화면 식별성을 위해 마크 중심으로 두고, 로그인·상단에는 워드마크가 포함된 넓은 로고를 사용한다.
+
+## 2026-06-04
+
+### Student web route
+
+- 학생 웹 접근은 직원 웹과 같은 Vite 번들 안의 `/student` 별도 경로로 둔다.
+- React Router를 추가하지 않고 `window.location.pathname` 분기로 학생 앱을 렌더링해 기존 직원 `/` 흐름의 회귀 위험을 줄인다.
+- 학생 웹은 `StudentWebApiClient`를 사용하고 직원 `DemoAppProvider`·`WebApiClient` 상태와 storage key를 공유하지 않는다.
+- 브라우저 학생 세션과 임시 입력은 `sessionStorage`에만 저장한다. 장기 초안은 연결 모드에서 DB memo autosave를 우선하고 증거 파일은 로컬에 복제하지 않는다.
+
+### Premium student UX
+
+- 모바일 앱은 로그인 뒤 곧바로 위저드로 들어가지 않고 `내 기록 홈`을 먼저 보여준다.
+- 학생 모바일과 `/student` 웹은 흰 카드, 남색, 골드 포인트, 넓은 여백, 큰 CTA로 통일한다.
+- 로그인 화면에는 `WEE-24-0510`과 현재 연결 환경에 맞는 시연 비밀번호를 표시해 데모 진입 장벽을 낮춘다.
+
 ## 2026-06-03
 
 ### Student-generated handoff code
@@ -372,3 +426,54 @@
 - Expo config 정적 확인과 Expo Go 화면 검증은 EAS가 만든 native APK의 최종 manifest를 대신하지 않는다.
 - preview APK를 내려받은 뒤 `verify:android:apk`가 Android SDK Build Tools `aapt2`로 패키지 ID, `allowBackup=false`, 키보드 `adjustResize`, `android.permission.RECORD_AUDIO` 부재를 검사한다.
 - Android SDK가 기본 위치에 없으면 명시적인 `-Aapt2Path`를 전달한다.
+
+### Relation graph gets a case-action matrix
+
+- 관계도만으로는 시간·장소·행위·인물의 열 비교가 어렵다.
+- 상담자 관계도 탭에 FactBlock 기반 사건 행위 매트릭스를 함께 배치한다.
+- 표 행 선택은 새 서버 상태를 만들지 않고 화면 내부 spotlight 상태만 갱신한다.
+- spotlight 계산은 FactBlock의 actor·target·action 텍스트와 사람 노드 라벨을 정규화해 관련 노드와 간선을 찾는다.
+- 노드와 화살표 직접 선택은 기존 확대 사건철 모달을 유지해 1차 관계와 관련 FactBlock 후보를 보여준다.
+
+### Student APKs use hosted public configuration
+
+- Android APK는 빌드 시점의 `EXPO_PUBLIC_SUPABASE_URL`과 공개 key를 번들링한다.
+- 외부 인터넷용 APK에는 LAN, localhost, Docker 내부 주소를 넣지 않는다.
+- `configure-mobile-hosted`는 `https` URL과 Auth health를 확인한 뒤 모바일 `.env.local`을 생성한다.
+- `build-student-apk`는 EAS 로그인과 project id가 준비된 뒤 preview APK를 빌드하고 EAS artifact URL과 로컬 APK 경로를 출력한다.
+- 실제 배포 APK 생성에는 Expo/EAS 계정 인증과 hosted Supabase 프로젝트 값이 필요하므로 이 값들은 git에 저장하지 않는다.
+
+### Hosted web deploys from the monorepo root
+
+- `apps/web`만 Vercel에 올리면 `@ieumlog/domain` 워크스페이스 패키지가 빠질 수 있으므로 루트 `vercel.json`을 둔다.
+- 루트 Vercel 빌드는 `npm run build --workspace @ieumlog/web`를 실행하고 `apps/web/dist`를 정적 출력으로 사용한다.
+- Vite preview의 외부 quick tunnel은 임시 시연 전용이다. `VITE_PREVIEW_ALLOWED_HOSTS=*`를 준 preview 프로세스에서만 전체 host를 허용하고, 영구 운영 배포의 보안 모델로 취급하지 않는다.
+
+### Demo screens expose sample credentials
+
+- hosted 합성 시연 계정은 실제 운영 계정이 아니므로 로그인 화면 안에 샘플 값을 표시한다.
+- 학생 앱은 `WEE-24-0510`과 시연 비밀번호를 기본 입력값으로 채우고, 다시 채우기 버튼을 둔다.
+- 직원 웹은 상담자, 기관 관리자, 플랫폼 관리자 버튼을 제공해 이메일과 시연 비밀번호를 즉시 채운다.
+- 기본 비밀번호는 연결 URL이 `supabase.co`이면 hosted 시연값을, 로컬 URL이면 기존 local seed 값을 사용한다.
+- 이 값은 합성 demo bootstrap 계정에만 사용하며 운영 계정 발급 UI의 기본값으로 전파하지 않는다.
+
+### Logo assets are app-native and web-static
+
+- Expo 앱 아이콘과 splash는 PNG만 참조해 EAS Android 빌드에서 바로 처리되게 한다.
+- 웹은 public 경로의 PNG/SVG를 사용해 번들 import 없이 Vite 정적 배포와 favicon을 안정적으로 유지한다.
+- 화면 로고는 첨부 로고의 연결된 하트, 열린 책, 펜 구조를 축약한 마크를 사용하되 작은 앱 아이콘에서도 읽히도록 텍스트보다 마크를 크게 둔다.
+
+### Synthetic demo evidence is generated, then uploaded
+
+- 시연 사건은 DB 메타데이터만이 아니라 실제 SVG 이미지, WebM 영상, 텍스트 문서 증거 원본을 함께 둔다.
+- `generate:synthetic:evidence`는 Chrome Canvas/MediaRecorder로 합성 WebM을 만들고, 같은 사건의 캡처·도면·타임라인 SVG와 메모 텍스트를 public demo 자산으로 생성한다.
+- `bootstrap:hosted-demo`는 DB 행과 연결만 갱신하고 Storage 객체는 만들지 않는다. hosted private Storage 원본은 `upload:synthetic:evidence`가 seed storage path로 별도 업로드한다.
+- 직원 웹은 연결 모드에서 서명 URL을 우선 사용하되, 합성 demo evidence id는 public demo 자산으로 fallback해 시연 화면이 비지 않게 한다.
+
+### Relation graph uses an investigative case-board style
+
+- 첨부 레퍼런스의 저작물·실명 인물을 복제하지 않고, 구조적 특성만 이음로그 합성 사건 관계판에 적용한다.
+- 원형 네트워크보다 인물 카드, 사건 번호, 경로 화살표, 관계 범례, 행/열 구역이 상담 전처리 맥락에서 읽기 쉽다.
+- `RelationGraphLayout`은 레인, 밀도, 병렬 곡선, 노드 경계 접점을 도메인 순수 함수로 계산하고 웹은 SVG 렌더링만 담당한다.
+- 학생 앱은 작은 화면에서 같은 정보를 압축해 인물·관계 수, 관계 경로, FactBlock 행으로 보여주며 오프라인에서는 `OnDeviceAiEngine` 결과를 사용한다.
+- Figma MCP 호출 제한이 풀리면 같은 원칙으로 `BquluxkwLu0dqq3K3Oq8PZ` 파일에 사건 관계판 레퍼런스 프레임을 추가한다.

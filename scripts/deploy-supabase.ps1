@@ -40,6 +40,7 @@ $functions = @(
   'student-login',
   'admin-users',
   'admin-institutions',
+  'create-case-handoff-code',
   'evidence-upload-url',
   'discard-evidence-upload',
   'evidence-download-url',
@@ -47,6 +48,8 @@ $functions = @(
   'process-case',
   'submit-case',
   'staff-case-action',
+  'redeem-case-handoff-code',
+  'save-relation-layout',
   'retry-failed-jobs',
   'purge-deleted'
 )

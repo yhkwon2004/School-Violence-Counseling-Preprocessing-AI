@@ -36,7 +36,7 @@ function Invoke-ApiJson([string]$Method, [string]$Path, [hashtable]$Headers, $Bo
 }
 
 function Get-StatusCode([string]$Method, [string]$Uri, [hashtable]$Headers = @{}, $Body = $null) {
-  $parameters = @{ Method = $Method; Uri = $Uri; Headers = $Headers }
+  $parameters = @{ Method = $Method; Uri = $Uri; Headers = $Headers; UseBasicParsing = $true }
   if ($null -ne $Body) {
     $parameters.ContentType = 'application/json'
     $parameters.Body = $Body | ConvertTo-Json -Depth 10 -Compress
@@ -67,6 +67,11 @@ function Convert-WebContentToText($Content) {
   return [string]$Content
 }
 
+function As-Array($Value) {
+  if ($null -eq $Value) { return @() }
+  return @($Value)
+}
+
 $envPath = [System.IO.Path]::GetFullPath((Join-Path $root $EnvFile))
 if (-not $envPath.StartsWith($rootPrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
   throw 'Hosted env file must stay inside the workspace.'
@@ -89,7 +94,7 @@ $createdCaseId = $null
 $deletionScheduled = $false
 $studentHeaders = $null
 try {
-  Assert-True ((Get-StatusCode 'GET' "$baseUrl/auth/v1/health") -eq 200) 'Hosted Auth health check failed.'
+  Assert-True ((Get-StatusCode 'GET' "$baseUrl/auth/v1/health" $publicHeaders) -eq 200) 'Hosted Auth health check failed.'
   Write-Output 'hosted_health=ok'
 
   Assert-True ((Get-StatusCode 'GET' "$baseUrl/functions/v1/student-login" $publicHeaders) -eq 405) 'student-login HTTP method guard failed.'
@@ -134,10 +139,15 @@ try {
     sizeBytes = 7
     kind = 'document'
   }
-  Invoke-WebRequest -Method Put -Uri (Normalize-SignedUrl $discardUpload.signedUrl) -ContentType 'text/plain' -Body ([System.Text.Encoding]::UTF8.GetBytes('PARTIAL')) | Out-Null
+  Invoke-WebRequest -Method Put -Uri (Normalize-SignedUrl $discardUpload.signedUrl) -ContentType 'text/plain' -Body ([System.Text.Encoding]::UTF8.GetBytes('PARTIAL')) -UseBasicParsing | Out-Null
   $discardResult = Invoke-ApiJson 'POST' '/functions/v1/discard-evidence-upload' $studentHeaders @{ evidenceId = $discardUpload.asset.id }
   Assert-True ([bool]$discardResult.discarded) 'Hosted partial upload reservation was not discarded.'
-  $discardedAssets = @(Invoke-ApiJson 'GET' "/rest/v1/evidence_assets?id=eq.$($discardUpload.asset.id)&select=id" $studentHeaders)
+  $discardedAssets = @()
+  for ($attempt = 0; $attempt -lt 10; $attempt++) {
+    $discardedAssets = As-Array (Invoke-ApiJson 'GET' "/rest/v1/evidence_assets?id=eq.$($discardUpload.asset.id)&select=id" $studentHeaders)
+    if ($discardedAssets.Count -eq 0) { break }
+    Start-Sleep -Milliseconds 300
+  }
   Assert-True ($discardedAssets.Count -eq 0) 'Hosted discarded upload metadata is still visible.'
   Write-Output 'hosted_discard_partial_upload=ok'
 
@@ -151,13 +161,13 @@ try {
     kind = 'document'
   }
   $uploadUrl = Normalize-SignedUrl $upload.signedUrl
-  Invoke-WebRequest -Method Put -Uri $uploadUrl -ContentType 'text/plain' -Body $smokeBytes | Out-Null
+  Invoke-WebRequest -Method Put -Uri $uploadUrl -ContentType 'text/plain' -Body $smokeBytes -UseBasicParsing | Out-Null
 
   $encodedStoragePath = Encode-StoragePath $upload.asset.storage_path
   $directStatus = Get-StatusCode 'GET' "$baseUrl/storage/v1/object/case-evidence/$encodedStoragePath"
   Assert-True ($directStatus -in @(400, 401, 403, 404)) "Private Storage direct URL returned unexpected status $directStatus."
   $download = Invoke-ApiJson 'POST' '/functions/v1/evidence-download-url' $studentHeaders @{ evidenceId = $upload.asset.id }
-  $downloaded = Invoke-WebRequest -Method Get -Uri (Normalize-SignedUrl $download.signedUrl)
+  $downloaded = Invoke-WebRequest -Method Get -Uri (Normalize-SignedUrl $download.signedUrl) -UseBasicParsing
   Assert-True ((Convert-WebContentToText $downloaded.Content).Trim() -eq $smokeText) 'Signed Storage download did not return the uploaded smoke payload.'
   Write-Output 'hosted_private_storage=ok'
 
@@ -176,7 +186,7 @@ try {
 
   Invoke-ApiJson 'POST' '/rest/v1/rpc/schedule_case_deletion' $studentHeaders @{ case_id_input = $createdCaseId } | Out-Null
   $deletionScheduled = $true
-  $hiddenCases = @(Invoke-ApiJson 'GET' "/rest/v1/cases?id=eq.$createdCaseId&select=id" $studentHeaders)
+  $hiddenCases = As-Array (Invoke-ApiJson 'GET' "/rest/v1/cases?id=eq.$createdCaseId&select=id" $studentHeaders)
   Assert-True ($hiddenCases.Count -eq 0) 'Scheduled deletion case is still visible in hosted RLS.'
   Write-Output 'hosted_deletion_schedule=ok'
 } finally {

@@ -113,12 +113,12 @@ try {
   $purgeCronSecret = 'local-purge-verification-secret'
   $retryCronSecret = 'local-retry-verification-secret'
   $seedGraph = Invoke-Psql "select (select count(*) from public.people) || '|' || (select count(*) from public.relations) || '|' || (select count(*) from public.fact_block_evidence);"
-  Assert-Equal $seedGraph '5|4|3' 'synthetic seed graph'
+  Assert-Equal $seedGraph '8|10|13' 'synthetic seed graph'
   Write-Output 'synthetic_seed_graph=ok'
   $seed = Get-Content -Raw -Encoding utf8 -LiteralPath (Join-Path $PSScriptRoot '../supabase/seed.sql')
   Apply-SyntheticSeed $seed
   $seedIdempotency = Invoke-Psql "select (select count(*) from public.missing_questions where id = '90000000-0000-0000-0000-000000000001') || '|' || (select count(*) from public.audit_logs where id = 'a0000000-0000-0000-0000-000000000001') || '|' || (select count(*) from public.people) || '|' || (select count(*) from public.relations) || '|' || (select count(*) from public.fact_block_evidence);"
-  Assert-Equal $seedIdempotency '1|1|5|4|3' 'synthetic seed idempotency'
+  Assert-Equal $seedIdempotency '1|1|8|10|13' 'synthetic seed idempotency'
   Write-Output 'synthetic_seed_idempotency=ok'
   $rotatedSeed = $seed.Replace("crypt('demo1234', gen_salt('bf'))", "crypt('hosted-demo-rotation-check', gen_salt('bf'))")
   if ($rotatedSeed -eq $seed) {

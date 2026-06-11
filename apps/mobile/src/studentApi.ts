@@ -2,8 +2,9 @@ import * as SecureStore from 'expo-secure-store';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { EvidenceKind, ProcessingStatus } from '@ieumlog/domain';
 import { MemoUpdateQueue } from './memoUpdateQueue';
+import { secureStoreKey } from './secureStoreKeys';
 
-const SESSION_KEY = 'ieumlog:student-session';
+const SESSION_KEY = secureStoreKey('ieumlog', 'student', 'session');
 
 type AuthSession = {
   access_token: string;
@@ -45,6 +46,21 @@ export type RemoteFact = {
   location: string | null;
   action: string;
   confirmed: boolean;
+};
+
+export type RemotePerson = {
+  id: string;
+  label: string;
+  relation: string;
+  tone: 'primary' | 'danger' | 'neutral' | 'support';
+};
+
+export type RemoteRelation = {
+  id: string;
+  fromPersonId: string;
+  toPersonId: string;
+  label: string;
+  indirect: boolean;
 };
 
 export type HandoffCodeResult = {
@@ -90,6 +106,21 @@ type FactRow = {
   location: string | null;
   action: string;
   confirmed: boolean;
+};
+
+type PersonRow = {
+  id: string;
+  anonymous_label: string;
+  relation: string;
+  tone: RemotePerson['tone'];
+};
+
+type RelationRow = {
+  id: string;
+  from_person_id: string;
+  to_person_id: string;
+  label: string;
+  indirect: boolean;
 };
 
 export class StudentApiClient {
@@ -282,6 +313,31 @@ export class StudentApiClient {
     }));
   }
 
+  async listPeople(caseId: string): Promise<RemotePerson[]> {
+    const rows = await this.rest<PersonRow[]>(
+      `/people?case_id=eq.${caseId}&select=id,anonymous_label,relation,tone`,
+    );
+    return rows.map((row) => ({
+      id: row.id,
+      label: row.anonymous_label,
+      relation: row.relation,
+      tone: row.tone,
+    }));
+  }
+
+  async listRelations(caseId: string): Promise<RemoteRelation[]> {
+    const rows = await this.rest<RelationRow[]>(
+      `/relations?case_id=eq.${caseId}&select=id,from_person_id,to_person_id,label,indirect`,
+    );
+    return rows.map((row) => ({
+      id: row.id,
+      fromPersonId: row.from_person_id,
+      toPersonId: row.to_person_id,
+      label: row.label,
+      indirect: row.indirect,
+    }));
+  }
+
   async answerQuestion(id: string, answer: string): Promise<void> {
     const normalized = answer.trim();
     await this.rest(`/missing_questions?id=eq.${id}`, {
@@ -333,7 +389,7 @@ export class StudentApiClient {
       headers: {
         apikey: this.anonKey,
         'Content-Type': 'application/json',
-        ...(session ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        Authorization: `Bearer ${session?.access_token ?? this.anonKey}`,
         ...init.headers,
       },
     });

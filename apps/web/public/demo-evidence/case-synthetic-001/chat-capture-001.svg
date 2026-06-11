@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="720" viewBox="0 0 1000 720" role="img" aria-label="합성 증거 001 · 단체 채팅 캡처">
+  <defs>
+    <linearGradient id="paper" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#edf4ff"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#062d62" flood-opacity=".14"/>
+    </filter>
+    <style>
+      .bg{fill:#f6f9fd}
+      .card{fill:url(#paper);stroke:#dbe6f3;filter:url(#shadow)}
+      .navy{fill:#062d62}
+      .gold{fill:#c8a66a}
+      .muted{fill:#6d7e95}
+      .line{stroke:#9fb1c7;stroke-width:2}
+      .strong{font:700 30px "Malgun Gothic","Apple SD Gothic Neo",sans-serif}
+      .body{font:500 22px "Malgun Gothic","Apple SD Gothic Neo",sans-serif}
+      .small{font:500 17px "Malgun Gothic","Apple SD Gothic Neo",sans-serif}
+      .mono{font:600 19px Consolas,"Malgun Gothic",monospace}
+    </style>
+  </defs>
+  <rect class="bg" width="1000" height="720"/>
+  <rect class="card" x="34" y="30" width="932" height="660" rx="30"/>
+  <text class="strong navy" x="68" y="82">합성 증거 001 · 단체 채팅 캡처</text>
+  
+  <text class="small muted" x="68" y="118">사건번호 CASE-24-0510 · 실제 학생 자료 아님 · 욕설 표현은 생략 처리</text>
+  <rect x="88" y="150" width="824" height="500" rx="34" fill="#f9fbff" stroke="#d9e4f2"/>
+  <rect x="120" y="188" width="760" height="54" rx="18" fill="#062d62"/>
+  <text class="body" x="150" y="223" fill="#fff">3학년 단체 채팅방 · 2024.05.10 14:29</text>
+  <rect x="140" y="282" width="470" height="52" rx="20" fill="#ffffff" stroke="#d8e3f1"/>
+  <text class="small" x="164" y="316" fill="#1b2f4d">C: 방금 계단 쪽 영상 올려도 돼?</text>
+  <rect x="386" y="356" width="468" height="52" rx="20" fill="#eaf1fb" stroke="#d8e3f1"/>
+  <text class="small" x="410" y="390" fill="#1b2f4d">B: 올려. 애들 다 보게 해.</text>
+  <rect x="140" y="430" width="612" height="52" rx="20" fill="#ffffff" stroke="#d8e3f1"/>
+  <text class="small" x="164" y="464" fill="#1b2f4d">익명 학생: [욕설 표현 생략] 라고 말한 장면 맞아?</text>
+  <rect x="356" y="504" width="498" height="52" rx="20" fill="#fff7e5" stroke="#d8e3f1"/>
+  <text class="small" x="380" y="538" fill="#1b2f4d">방장 E: 지금 31명 읽음. 더 보내지 마.</text>
+  <rect x="145" y="592" width="300" height="26" rx="13" fill="#dce8f8"/>
+  <text class="small muted" x="464" y="612">OCR 추출 후보: B, C, 방장 E, 14:29-14:31</text>
+  
+</svg>

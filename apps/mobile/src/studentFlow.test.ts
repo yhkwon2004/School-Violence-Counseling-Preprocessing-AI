@@ -10,6 +10,9 @@ import {
   shouldRestoreDeviceDraft,
   shouldShowLockedStudentCase,
   shouldBlockAnalysisStepAdvance,
+  offlineCaseIdForLogin,
+  shouldOfferOfflineMode,
+  studentDemoPasswordForLogin,
   studentSubmitBlockReason,
 } from './studentFlow';
 
@@ -112,5 +115,21 @@ describe('studentFlow', () => {
     expect(questionSaveBlockReason({ 'question-1': 'dirty' })).toBe('dirty');
     expect(questionSaveBlockReason({ 'question-1': 'dirty', 'question-2': 'saving' })).toBe('saving');
     expect(questionSaveBlockReason({ 'question-1': 'saving', 'question-2': 'error' })).toBe('error');
+  });
+
+  it('maps the local demo password to the hosted sample password only for the sample student', () => {
+    expect(studentDemoPasswordForLogin('wee-24-0510', 'demo1234', 'WEE-24-0510', 'IeumlogDemo2026!')).toBe('IeumlogDemo2026!');
+    expect(studentDemoPasswordForLogin('WEE-24-9999', 'demo1234', 'WEE-24-0510', 'IeumlogDemo2026!')).toBe('demo1234');
+    expect(studentDemoPasswordForLogin('WEE-24-0510', 'student-password', 'WEE-24-0510', 'IeumlogDemo2026!')).toBe('student-password');
+  });
+
+  it('offers offline mode for network failures but not invalid credentials', () => {
+    expect(shouldOfferOfflineMode(new Error('Network request failed'))).toBe(true);
+    expect(shouldOfferOfflineMode(new Error('학생 ID 또는 비밀번호를 확인해 주세요.'))).toBe(false);
+  });
+
+  it('creates a stable safe offline case id from a student login id', () => {
+    expect(offlineCaseIdForLogin(' wee:24/0510 ')).toBe('offline-WEE_24_0510');
+    expect(offlineCaseIdForLogin('')).toBe('offline-student');
   });
 });

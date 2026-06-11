@@ -6,6 +6,7 @@ import {
   parseDraftChunkCount,
   splitDraftSnapshot,
 } from './draftChunks';
+import { secureStoreKey } from './secureStoreKeys';
 
 export class SecureDraftStore implements DraftStore {
   async read(caseId: string): Promise<DraftSnapshot | null> {
@@ -54,10 +55,10 @@ export class SecureDraftStore implements DraftStore {
   }
 
   private countKey(caseId: string) {
-    return `ieumlog:${caseId}:draft-count`;
+    return secureStoreKey('ieumlog', caseId, 'draft-count');
   }
 
   private chunkKey(caseId: string, index: number) {
-    return `ieumlog:${caseId}:draft-${index}`;
+    return secureStoreKey('ieumlog', caseId, `draft-${index}`);
   }
 }

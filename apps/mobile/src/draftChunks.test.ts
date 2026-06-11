@@ -7,6 +7,7 @@ import {
   splitDraftSnapshot,
   utf8ByteLength,
 } from './draftChunks';
+import { secureStoreKey } from './secureStoreKeys';
 
 describe('draftChunks', () => {
   it('splits and restores a valid student draft', () => {
@@ -47,5 +48,10 @@ describe('draftChunks', () => {
 
   it('counts Korean and supplementary Unicode code points as UTF-8 bytes', () => {
     expect(utf8ByteLength('A가😀')).toBe(8);
+  });
+
+  it('creates Expo SecureStore-compatible keys', () => {
+    expect(secureStoreKey('ieumlog', 'case:with/slash', 'draft-count')).toBe('ieumlog.case_with_slash.draft-count');
+    expect(secureStoreKey('ieumlog', 'student', 'session')).toMatch(/^[A-Za-z0-9._-]+$/);
   });
 });

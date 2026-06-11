@@ -16,19 +16,20 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as Clipboard from 'expo-clipboard';
 import { createAudioPlayer } from 'expo-audio';
 import {
-  EvidenceAsset,
-  RuleBasedAnalyzer,
   type AnalysisResult,
   type EvidenceKind,
   type ProcessingStatus,
 } from '@ieumlog/domain';
 import { SecureDraftStore } from '../src/draftStore';
 import { MemoUpdateQueue } from '../src/memoUpdateQueue';
+import { OnDeviceAiEngine } from '../src/onDeviceAi';
 import {
   StudentApiClient,
   type HandoffCodeResult,
   type RemoteFact,
+  type RemotePerson,
   type RemoteQuestion,
+  type RemoteRelation,
 } from '../src/studentApi';
 import {
   mergeQuestionAnswerDrafts,
@@ -46,7 +47,7 @@ import {
 
 const draftStore = new SecureDraftStore();
 const deviceDraftUpdates = new MemoUpdateQueue();
-const analyzer = new RuleBasedAnalyzer();
+const onDeviceAi = new OnDeviceAiEngine();
 const studentApi = new StudentApiClient();
 const DEMO_CASE_ID = 'mobile-draft';
 
@@ -75,6 +76,8 @@ export default function StudentWizard() {
   const [questionSaveStatuses, setQuestionSaveStatuses] = useState<Record<string, QuestionSaveStatus>>({});
   const questionSaveVersions = useRef<Record<string, number>>({});
   const [facts, setFacts] = useState<RemoteFact[]>([]);
+  const [people, setPeople] = useState<RemotePerson[]>([]);
+  const [relations, setRelations] = useState<RemoteRelation[]>([]);
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [analysisRequired, setAnalysisRequired] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
@@ -98,10 +101,12 @@ export default function StudentWizard() {
 
   const refreshConnectedData = useCallback(async (activeCaseId: string) => {
     if (!studentApi.connected || activeCaseId === DEMO_CASE_ID) return { factCount: 0 };
-    const [remoteEvidence, remoteQuestions, remoteFacts] = await Promise.all([
+    const [remoteEvidence, remoteQuestions, remoteFacts, remotePeople, remoteRelations] = await Promise.all([
       studentApi.listEvidence(activeCaseId),
       studentApi.listQuestions(activeCaseId),
       studentApi.listFacts(activeCaseId),
+      studentApi.listPeople(activeCaseId),
+      studentApi.listRelations(activeCaseId),
     ]);
     setEvidence(remoteEvidence.map((asset) => ({
       id: asset.id,
@@ -116,6 +121,8 @@ export default function StudentWizard() {
     setQuestionSaveStatuses((current) => retainQuestionValues(current, remoteQuestions));
     questionSaveVersions.current = retainQuestionValues(questionSaveVersions.current, remoteQuestions);
     setFacts(remoteFacts);
+    setPeople(remotePeople);
+    setRelations(remoteRelations);
     return { factCount: remoteFacts.length };
   }, []);
 
@@ -129,6 +136,8 @@ export default function StudentWizard() {
     setQuestions([]);
     resetQuestionAnswers();
     setFacts([]);
+    setPeople([]);
+    setRelations([]);
     setAnalysis(null);
     setAnalysisRequired(false);
     setSubmitted(locked);
@@ -347,9 +356,9 @@ export default function StudentWizard() {
           {step === 0 && <SafetyStep />}
           {step === 1 && <MemoStep memo={memo} onChange={updateMemo} />}
           {step === 2 && <EvidenceStep evidence={evidence} onPick={() => void pickEvidence(caseId, evidence, setEvidence, setUploadingEvidence)} uploading={uploadingEvidence} />}
-          {step === 3 && <AnalysisStep analyzing={analyzing} analysis={analysis} evidence={evidence} onAnalyze={() => void runAnalysis(caseId, evidence, memo, setAnalyzing, setAnalysis, setFacts, resetQuestionAnswers, setAnalysisRequired, refreshConnectedData)} />}
+          {step === 3 && <AnalysisStep analyzing={analyzing} analysis={analysis} evidence={evidence} onAnalyze={() => void runAnalysis(caseId, evidence, memo, setAnalyzing, setAnalysis, setFacts, setPeople, setRelations, resetQuestionAnswers, setAnalysisRequired, refreshConnectedData)} />}
           {step === 4 && <QuestionsStep analysis={analysis} answers={questionAnswerDrafts} connected={studentApi.connected} questions={questions} saveStatuses={questionSaveStatuses} onAnswer={(id, answer) => void saveAnswer(id, answer, setQuestionAnswerDrafts, beginQuestionSave, finishQuestionSave)} onAnswerChange={updateQuestionAnswerDraft} onDiscard={discardQuestionAnswerDraft} />}
-          {step === 5 && <ConfirmStep evidence={evidence} facts={analysisRequired ? [] : facts} memo={memo} />}
+          {step === 5 && <ConfirmStep evidence={evidence} facts={analysisRequired ? [] : facts} memo={memo} people={analysisRequired ? [] : people} relations={analysisRequired ? [] : relations} />}
         </ScrollView>
         <View style={styles.bottomBar}>
           {step > 0 && <SecondaryButton label="이전" onPress={() => setStep((current) => current - 1)} />}
@@ -560,7 +569,26 @@ function QuestionsStep({
   );
 }
 
-function ConfirmStep({ evidence, facts, memo }: { evidence: LocalEvidence[]; facts: RemoteFact[]; memo: string }) {
+function mobilePersonLabel(people: RemotePerson[], id: string) {
+  return people.find((person) => person.id === id)?.label ?? id;
+}
+
+function ConfirmStep({
+  evidence,
+  facts,
+  memo,
+  people,
+  relations,
+}: {
+  evidence: LocalEvidence[];
+  facts: RemoteFact[];
+  memo: string;
+  people: RemotePerson[];
+  relations: RemoteRelation[];
+}) {
+  const firstFact = facts[0];
+  const previewFacts = facts.slice(0, 4);
+  const previewRelations = relations.slice(0, 3);
   return (
     <View>
       <Text style={styles.title}>제출 전에 직접 확인해 주세요.</Text>
@@ -576,6 +604,59 @@ function ConfirmStep({ evidence, facts, memo }: { evidence: LocalEvidence[]; fac
         <Text style={styles.listText}>사건 메모 {memo.length}자</Text>
         <Text style={styles.listText}>증거 파일 {evidence.length}개</Text>
         <Text style={styles.listText}>FactBlock 후보 {facts.length}개</Text>
+        <Text style={styles.listText}>인물 {people.length}명 · 관계 {relations.length}건</Text>
+      </View>
+      <View style={styles.caseBoardCard}>
+        <View style={styles.caseBoardHeader}>
+          <View>
+            <Text style={styles.cardTitle}>관계도·타임라인 미리보기</Text>
+            <Text style={styles.caption}>오프라인에서도 기기 안에서 1차 정리합니다.</Text>
+          </View>
+          <Text style={styles.boardBadge}>{facts.length ? '정리됨' : '분석 필요'}</Text>
+        </View>
+        <View style={styles.mobileGraphBoard}>
+          <View style={[styles.mobileNode, styles.mobileNodePrimary]}>
+            <Text style={styles.mobileNodeTitle}>피해 학생</Text>
+            <Text style={styles.mobileNodeCaption}>기록 작성자</Text>
+          </View>
+          <Text style={styles.mobileArrow}>→</Text>
+          <View style={[styles.mobileNode, styles.mobileNodeDanger]}>
+            <Text style={styles.mobileNodeTitle}>행위 단서</Text>
+            <Text style={styles.mobileNodeCaption}>{firstFact?.action ? firstFact.action.slice(0, 18) : '분석 후 표시'}</Text>
+          </View>
+          <Text style={styles.mobileArrow}>→</Text>
+          <View style={[styles.mobileNode, styles.mobileNodeSupport]}>
+            <Text style={styles.mobileNodeTitle}>상담 준비</Text>
+            <Text style={styles.mobileNodeCaption}>{evidence.length}개 증거 연결</Text>
+          </View>
+        </View>
+        {previewRelations.length ? (
+          <View style={styles.mobileRelationList}>
+            {previewRelations.map((relation) => (
+              <View key={relation.id} style={styles.mobileRelationRow}>
+                <Text style={styles.mobileRelationPath}>
+                  {mobilePersonLabel(people, relation.fromPersonId)} → {mobilePersonLabel(people, relation.toPersonId)}
+                </Text>
+                <Text style={styles.mobileRelationLabel}>{relation.label}{relation.indirect ? ' · 간접' : ''}</Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
+        {previewFacts.length ? previewFacts.map((fact) => (
+          <View key={`matrix-${fact.id}`} style={styles.mobileMatrixRow}>
+            <View style={styles.mobileMatrixIndex}>
+              <Text style={styles.mobileMatrixIndexText}>{fact.sequence}</Text>
+            </View>
+            <View style={styles.mobileMatrixBody}>
+              <Text style={styles.mobileMatrixAction}>{fact.action}</Text>
+              <Text style={styles.caption}>
+                {fact.location ?? '장소 확인 필요'} · {fact.occurredAt ? new Date(fact.occurredAt).toLocaleDateString('ko-KR') : '시기 확인 필요'}
+              </Text>
+            </View>
+          </View>
+        )) : (
+          <Text style={styles.listText}>분석 단계에서 “기록 정리 시작”을 누르면 관계·시간·장소 후보가 이 보드에 표시됩니다.</Text>
+        )}
       </View>
       {facts.length ? (
         <View style={styles.card}>
@@ -666,6 +747,8 @@ async function runAnalysis(
   setAnalyzing: (value: boolean) => void,
   setAnalysis: (value: AnalysisResult) => void,
   setFacts: (facts: RemoteFact[]) => void,
+  setPeople: (people: RemotePerson[]) => void,
+  setRelations: (relations: RemoteRelation[]) => void,
   resetQuestionAnswers: () => void,
   setAnalysisRequired: (value: boolean) => void,
   refreshConnectedData: (activeCaseId: string) => Promise<unknown>,
@@ -690,31 +773,12 @@ async function runAnalysis(
     }
     return;
   }
-  const evidence = localEvidence.map(
-    (asset) =>
-      new EvidenceAsset(
-        asset.id,
-        DEMO_CASE_ID,
-        asset.name,
-        asset.mimeType,
-        asset.size,
-        asset.kind,
-        `${DEMO_CASE_ID}/${asset.name}`,
-        true,
-        new Date().toISOString(),
-      ),
-  );
-  const result = await analyzer.analyze({ caseId: DEMO_CASE_ID, memo, evidence, synthetic: true });
+  const result = await onDeviceAi.analyze({ caseId: DEMO_CASE_ID, memo, evidence: localEvidence });
   setTimeout(() => {
-    setAnalysis(result);
-    setFacts(result.factBlocks.map((fact) => ({
-      id: fact.id,
-      sequence: fact.sequence,
-      occurredAt: fact.occurredAt,
-      location: fact.location,
-      action: fact.action,
-      confirmed: fact.confirmed,
-    })));
+    setAnalysis(result.analysis);
+    setFacts(result.facts);
+    setPeople(result.people);
+    setRelations(result.relations);
     setAnalysisRequired(false);
     setAnalyzing(false);
   }, 650);
@@ -1011,5 +1075,25 @@ const styles = StyleSheet.create({
   handoffActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   errorText: { color: '#b23d4a', fontSize: 12, fontWeight: '700', lineHeight: 18 },
   disabledButton: { opacity: 0.62 },
+  caseBoardCard: { gap: 13, marginTop: 14, borderWidth: 1, borderColor: '#d7e0eb', borderRadius: 20, backgroundColor: '#fff', padding: 16 },
+  caseBoardHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 },
+  boardBadge: { overflow: 'hidden', borderRadius: 999, backgroundColor: '#f6eddb', color: '#8a651e', paddingHorizontal: 10, paddingVertical: 5, fontSize: 11, fontWeight: '900' },
+  mobileGraphBoard: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 6, borderWidth: 1, borderColor: '#e2e8f2', borderRadius: 18, backgroundColor: '#f8fbff', padding: 10 },
+  mobileNode: { flex: 1, minHeight: 86, justifyContent: 'center', borderWidth: 1, borderColor: '#dce5f0', borderRadius: 15, backgroundColor: '#fff', padding: 10 },
+  mobileNodePrimary: { borderColor: '#c8a66a', backgroundColor: '#fffaf0' },
+  mobileNodeDanger: { borderColor: '#efb7bf', backgroundColor: '#fff8f9' },
+  mobileNodeSupport: { borderColor: '#b9ddc9', backgroundColor: '#f4fbf7' },
+  mobileNodeTitle: { color: '#073b78', fontSize: 12, fontWeight: '900' },
+  mobileNodeCaption: { marginTop: 4, color: '#64748b', fontSize: 10, fontWeight: '800', lineHeight: 14 },
+  mobileArrow: { color: '#c8a66a', fontSize: 18, fontWeight: '900' },
+  mobileRelationList: { gap: 7 },
+  mobileRelationRow: { borderWidth: 1, borderColor: '#e1e8f2', borderRadius: 12, backgroundColor: '#fbfdff', paddingHorizontal: 11, paddingVertical: 9 },
+  mobileRelationPath: { color: '#073b78', fontSize: 12, fontWeight: '900' },
+  mobileRelationLabel: { marginTop: 2, color: '#728196', fontSize: 11, fontWeight: '800' },
+  mobileMatrixRow: { flexDirection: 'row', gap: 10, alignItems: 'flex-start', borderTopWidth: 1, borderTopColor: '#edf1f6', paddingTop: 11 },
+  mobileMatrixIndex: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center', borderRadius: 14, backgroundColor: '#073b78' },
+  mobileMatrixIndexText: { color: '#fff', fontSize: 12, fontWeight: '900' },
+  mobileMatrixBody: { flex: 1, gap: 3 },
+  mobileMatrixAction: { color: '#173b69', fontSize: 13, fontWeight: '900', lineHeight: 19 },
   factRow: { gap: 3, borderTopWidth: 1, borderTopColor: '#e3e9f1', paddingTop: 9 },
 });

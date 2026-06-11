@@ -96,3 +96,30 @@ export function shouldApplyQuestionSaveResult(
 export function nextQuestionSaveVersion(currentVersion: number | undefined) {
   return (currentVersion ?? 0) + 1;
 }
+
+export function studentDemoPasswordForLogin(
+  loginId: string,
+  password: string,
+  sampleLoginId: string,
+  hostedDemoPassword: string,
+  localDemoPassword = 'demo1234',
+) {
+  if (
+    loginId.trim().toUpperCase() === sampleLoginId.trim().toUpperCase()
+    && password === localDemoPassword
+    && hostedDemoPassword !== localDemoPassword
+  ) {
+    return hostedDemoPassword;
+  }
+  return password;
+}
+
+export function shouldOfferOfflineMode(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error ?? '');
+  return /network request failed|failed to fetch|timeout|timed out|networkerror|internet|offline|supabase 연결 환경변수/i.test(message);
+}
+
+export function offlineCaseIdForLogin(loginId: string) {
+  const normalized = loginId.trim().toUpperCase().replace(/[^A-Z0-9._-]/g, '_');
+  return `offline-${normalized || 'student'}`;
+}

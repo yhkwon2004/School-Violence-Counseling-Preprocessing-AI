@@ -49,6 +49,33 @@ type DemoAppValue = {
 
 const webApi = new WebApiClient();
 const DemoAppContext = createContext<DemoAppValue | null>(null);
+const DEMO_EVIDENCE_URLS = new Map([
+  ['evidence-1', '/demo-evidence/case-synthetic-001/chat-capture-001.svg'],
+  ['evidence-2', '/demo-evidence/case-synthetic-001/stair-location-map-002.svg'],
+  ['evidence-3', '/demo-evidence/case-synthetic-001/stair-video-003.webm'],
+  ['evidence-4', '/demo-evidence/case-synthetic-001/chat-share-003.svg'],
+  ['evidence-5', '/demo-evidence/case-synthetic-001/teacher-note-004.txt'],
+  ['evidence-6', '/demo-evidence/case-synthetic-001/witness-memo-005.txt'],
+  ['evidence-7', '/demo-evidence/case-synthetic-001/timeline-board-006.svg'],
+  ['60000000-0000-0000-0000-000000000001', '/demo-evidence/case-synthetic-001/chat-capture-001.svg'],
+  ['60000000-0000-0000-0000-000000000002', '/demo-evidence/case-synthetic-001/stair-location-map-002.svg'],
+  ['60000000-0000-0000-0000-000000000003', '/demo-evidence/case-synthetic-001/stair-video-003.webm'],
+  ['60000000-0000-0000-0000-000000000004', '/demo-evidence/case-synthetic-001/chat-share-003.svg'],
+  ['60000000-0000-0000-0000-000000000005', '/demo-evidence/case-synthetic-001/teacher-note-004.txt'],
+  ['60000000-0000-0000-0000-000000000006', '/demo-evidence/case-synthetic-001/witness-memo-005.txt'],
+  ['60000000-0000-0000-0000-000000000007', '/demo-evidence/case-synthetic-001/timeline-board-006.svg'],
+]);
+
+function demoEvidenceUrl(evidenceId: string): string | null {
+  return DEMO_EVIDENCE_URLS.get(evidenceId) ?? null;
+}
+
+function openDemoEvidence(evidenceId: string): boolean {
+  const url = demoEvidenceUrl(evidenceId);
+  if (!url) return false;
+  window.open(url, '_blank', 'noopener,noreferrer');
+  return true;
+}
 
 function appendAudit(
   dataset: SyntheticDataset,
@@ -80,7 +107,7 @@ export function DemoAppProvider({ children }: PropsWithChildren) {
       id: 'note-1',
       caseId: 'case-synthetic-001',
       authorId: 'counselor-1',
-      body: '피해 학생의 심리 상태와 안전을 먼저 확인합니다. 단체 채팅방 참여자 목록을 추가로 확인할 필요가 있습니다.',
+      body: '피해 학생의 안전 상태를 먼저 확인했습니다. 단체 채팅방 참여자 목록, 영상 원본 보유자, 목격자 D의 위치를 추가로 확인할 필요가 있습니다.',
       createdAt: '2026-05-31T05:20:00.000Z',
     },
   ]);
@@ -257,13 +284,21 @@ export function DemoAppProvider({ children }: PropsWithChildren) {
         setDataset((current) => appendAudit(current, activeProfileId, 'note.created', 'case', caseId));
       },
       downloadEvidence: (evidenceId) => {
+        if (openDemoEvidence(evidenceId)) return;
         if (webApi.connected) {
-          runConnected(() => webApi.downloadEvidence(evidenceId));
+          void webApi.downloadEvidence(evidenceId).catch((error: unknown) => {
+            window.alert(error instanceof Error ? error.message : '증거 자료를 열 수 없습니다.');
+          });
+          return;
         }
+        window.alert('합성 증거 파일을 찾을 수 없습니다.');
       },
-      getEvidencePreviewUrl: async (evidenceId) => (
-        webApi.connected ? webApi.getEvidenceUrl(evidenceId) : null
-      ),
+      getEvidencePreviewUrl: async (evidenceId) => {
+        const fallbackUrl = demoEvidenceUrl(evidenceId);
+        if (fallbackUrl) return fallbackUrl;
+        if (!webApi.connected) return null;
+        return webApi.getEvidenceUrl(evidenceId);
+      },
       setRetentionDays: (days) => {
         if (webApi.connected && activeProfile?.institutionId) {
           runConnected(() => webApi.setRetentionDays(activeProfile.institutionId!, days));

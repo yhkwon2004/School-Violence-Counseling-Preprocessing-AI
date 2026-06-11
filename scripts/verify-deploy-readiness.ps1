@@ -13,6 +13,7 @@ $requiredFunctions = @(
   'student-login',
   'admin-users',
   'admin-institutions',
+  'create-case-handoff-code',
   'evidence-upload-url',
   'discard-evidence-upload',
   'evidence-download-url',
@@ -20,6 +21,8 @@ $requiredFunctions = @(
   'process-case',
   'submit-case',
   'staff-case-action',
+  'redeem-case-handoff-code',
+  'save-relation-layout',
   'retry-failed-jobs',
   'purge-deleted'
 )
@@ -159,12 +162,22 @@ foreach ($marker in @('EXPO_PUBLIC_SUPABASE_URL', 'EXPO_PUBLIC_SUPABASE_ANON_KEY
 Write-Output 'mobile_lan_automation=ok'
 
 $configureMobileLan = Read-WorkspaceFile 'scripts/configure-mobile-lan.ps1'
+$configureMobileHosted = Read-WorkspaceFile 'scripts/configure-mobile-hosted.ps1'
+$buildStudentApk = Read-WorkspaceFile 'scripts/build-student-apk.ps1'
 $configureWebLocal = Read-WorkspaceFile 'scripts/configure-web-local.ps1'
 $verifyWebLocal = Read-WorkspaceFile 'scripts/verify-web-local.ps1'
 $verifyWebUiLocal = Read-WorkspaceFile 'scripts/verify-web-ui-local.ps1'
 $verifyWebUiLocalNode = Read-WorkspaceFile 'scripts/verify-web-ui-local.mjs'
 foreach ($marker in @('EXPO_PUBLIC_SUPABASE_ANON_KEY', 'PUBLISHABLE_KEY', 'ANON_KEY')) {
   Assert-True ($configureMobileLan.Contains($marker)) "Android LAN local configuration is missing: $marker"
+}
+Assert-True ($package.scripts.'configure:mobile:hosted'.Contains('configure-mobile-hosted.ps1')) 'Hosted Android env configuration command is missing'
+Assert-True ($package.scripts.'build:student:apk'.Contains('build-student-apk.ps1')) 'Student APK build command is missing'
+foreach ($marker in @('EXPO_PUBLIC_SUPABASE_URL', 'EXPO_PUBLIC_SUPABASE_ANON_KEY', 'SUPABASE_URL', 'SUPABASE_ANON_KEY', 'https', '/auth/v1/health', 'mobile_hosted_env_written=ok')) {
+  Assert-True ($configureMobileHosted.Contains($marker)) "Hosted Android env configuration is missing: $marker"
+}
+foreach ($marker in @('eas-cli whoami', 'eas-cli init', 'eas-cli build', '--profile preview', '--platform android', '--wait', '--json', 'student_apk_download_url=', 'student_apk_file=')) {
+  Assert-True ($buildStudentApk.Contains($marker)) "Student APK build automation is missing: $marker"
 }
 foreach ($marker in @('VITE_SUPABASE_URL', 'VITE_SUPABASE_ANON_KEY', 'PUBLISHABLE_KEY', 'ANON_KEY', '/auth/v1/health', 'web_env_written=ok')) {
   Assert-True ($configureWebLocal.Contains($marker)) "Connected web local configuration is missing: $marker"
@@ -178,7 +191,7 @@ Assert-True ($package.scripts.'verify:web:ui-local'.Contains('verify-web-ui-loca
 foreach ($marker in @('--headless=new', '-WindowStyle Hidden', 'verify-web-ui-local.mjs')) {
   Assert-True ($verifyWebUiLocal.Contains($marker)) "Connected web UI smoke launcher is missing: $marker"
 }
-foreach ($marker in @('connected_counselor_ui=ok', 'connected_institution_admin_ui=ok', 'connected_platform_ui=ok', 'counselor-evidence-map.png', 'institution-admin-retention.png', 'institution-admin-retention-mobile.png', 'platform-admin-menu.png', 'web-ui-failure.png', 'login failed:', 'Emulation.setDeviceMetricsOverride', 'hasHorizontalOverflow')) {
+foreach ($marker in @('connected_counselor_ui=ok', 'connected_institution_admin_ui=ok', 'connected_platform_ui=ok', 'counselor-relation-matrix.png', 'counselor-evidence-map.png', '.relation-matrix-table th', '.relation-svg-node.spotlight', '.relation-edge-group.spotlight', 'institution-admin-retention.png', 'institution-admin-retention-mobile.png', 'platform-admin-menu.png', 'web-ui-failure.png', 'login failed:', 'Emulation.setDeviceMetricsOverride', 'hasHorizontalOverflow')) {
   Assert-True ($verifyWebUiLocalNode.Contains($marker)) "Connected web UI smoke check is missing: $marker"
 }
 Write-Output 'connected_web_ui_automation=ok'

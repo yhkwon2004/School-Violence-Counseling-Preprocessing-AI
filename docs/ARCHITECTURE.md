@@ -4,7 +4,7 @@
 
 ```text
 apps/mobile       Expo Router SDK 54 학생 앱
-apps/web          Vite React 상담자·관리자 웹
+apps/web          Vite React 상담자·관리자 웹, /student 학생 웹
 packages/domain   공통 객체 지향 도메인 계층
 supabase          Postgres, Auth, Storage, Edge Functions, seed
 docs              설계와 운영 기록
@@ -14,17 +14,27 @@ Expo는 npm workspaces 기반 모노레포를 지원하며 Android Expo Go 검�
 
 `npm audit`의 잔여 moderate 경고는 Expo CLI와 SDK 54 전이 의존성에 묶여 있다. 자동 수정은 Expo 56 메이저 업그레이드를 요구하므로 첫 MVP에서는 강제 적용하지 않고 별도 SDK 업그레이드 작업으로 추적한다.
 
-배포 준비는 `scripts/configure-web-local.ps1`, `scripts/verify-web-local.ps1`, `scripts/configure-mobile-lan.ps1`, `scripts/verify-mobile-lan.ps1`, `scripts/verify-deploy-readiness.ps1`, `scripts/deploy-supabase.ps1`, `scripts/bootstrap-hosted-demo.ps1`, `scripts/verify-hosted.ps1`로 분리한다. 직원 웹 설정 스크립트는 로컬 URL과 공개 API key만 웹의 무시 대상 `.env.local`에 쓴다. 로컬 CLI status에서는 `PUBLISHABLE_KEY`를 우선 읽고 구형 CLI에서만 `ANON_KEY`로 fallback한다. Android Expo Go 설정 스크립트도 LAN URL과 같은 공개 API key만 앱의 무시 대상 `.env.local`에 쓴다. 서버 검증은 `SECRET_KEY`를 우선 읽고 구형 CLI의 `SERVICE_ROLE_KEY`를 fallback으로 허용한다. 웹 verifier는 공개 env 허용 목록, Supabase Auth health, Vite 진입 HTML을 검사한다. LAN verifier는 공개 env 허용 목록, LAN Supabase Auth health, Metro status를 검사하고 `exp://` 접속 URL만 출력한다. 루트 `dev:mobile`과 `dev:web` npm 명령은 `--` 전달 경계로 하위 Expo·Vite CLI 옵션을 워크스페이스까지 넘긴다. Expo CLI가 만드는 `expo-env.d.ts`는 `apps/mobile/.gitignore`로 제외하고 실행 시 재생성한다. Supabase CLI는 루트 devDependency의 정확한 버전으로 고정해 DB 스키마와 Realtime·Storage 이미지 조합을 재현한다. `db reset` 뒤 기존 서비스 컨테이너와 새 DB 스키마가 섞인 경우 루트 `supabase:stop`, `supabase:start`로 스택을 다시 구성한다. hosted 배포 스크립트는 DB push, custom secret 등록, Edge Function 배포를 수행하며 placeholder와 `EXTERNAL_AI_MODE`를 검사한다. 격리된 합성 시연 프로젝트만 명시적 확인 플래그와 git 무시 `supabase/.env.hosted`를 사용해 고정 가상 seed를 넣는다. bootstrap은 로컬 기본 비밀번호를 별도 임의 비밀번호로 치환하고 임시 SQL을 즉시 삭제한다. seed의 고정 Auth 사용자 upsert는 재실행 시 현재 hosted 시연 비밀번호로 해시를 회전한다. 예약 작업은 `supabase/cron.example.sql`에서 Vault, `pg_cron`, `pg_net`으로 등록한다.
+배포 준비는 `scripts/configure-web-local.ps1`, `scripts/verify-web-local.ps1`, `scripts/configure-mobile-lan.ps1`, `scripts/configure-mobile-hosted.ps1`, `scripts/build-student-apk.ps1`, `scripts/verify-mobile-lan.ps1`, `scripts/verify-deploy-readiness.ps1`, `scripts/deploy-supabase.ps1`, `scripts/bootstrap-hosted-demo.ps1`, `scripts/upload-synthetic-evidence.ps1`, `scripts/verify-hosted.ps1`로 분리한다. 직원 웹 설정 스크립트는 로컬 URL과 공개 API key만 웹의 무시 대상 `.env.local`에 쓴다. 로컬 CLI status에서는 `PUBLISHABLE_KEY`를 우선 읽고 구형 CLI에서만 `ANON_KEY`로 fallback한다. Android Expo Go 설정 스크립트도 LAN URL과 같은 공개 API key만 앱의 무시 대상 `.env.local`에 쓴다. hosted APK 설정 스크립트는 `supabase/.env.hosted` 또는 명령 인자의 `https` Supabase URL과 공개 key를 모바일 `.env.local`에 쓰고 Auth health를 확인한다. `build-student-apk`는 EAS preview APK 빌드를 기다린 뒤 artifact URL과 내려받은 APK 경로를 출력한다. 서버 검증은 `SECRET_KEY`를 우선 읽고 구형 CLI의 `SERVICE_ROLE_KEY`를 fallback으로 허용한다. 웹 verifier는 공개 env 허용 목록, Supabase Auth health, Vite 진입 HTML을 검사한다. LAN verifier는 공개 env 허용 목록, LAN Supabase Auth health, Metro status를 검사하고 `exp://` 접속 URL만 출력한다. 루트 `dev:mobile`과 `dev:web` npm 명령은 `--` 전달 경계로 하위 Expo·Vite CLI 옵션을 워크스페이스까지 넘긴다. Expo CLI가 만드는 `expo-env.d.ts`는 `apps/mobile/.gitignore`로 제외하고 실행 시 재생성한다. Supabase CLI는 루트 devDependency의 정확한 버전으로 고정해 DB 스키마와 Realtime·Storage 이미지 조합을 재현한다. `db reset` 뒤 기존 서비스 컨테이너와 새 DB 스키마가 섞인 경우 루트 `supabase:stop`, `supabase:start`로 스택을 다시 구성한다. hosted 배포 스크립트는 DB push, custom secret 등록, Edge Function 배포를 수행하며 placeholder와 `EXTERNAL_AI_MODE`를 검사한다. 격리된 합성 시연 프로젝트만 명시적 확인 플래그와 git 무시 `supabase/.env.hosted`를 사용해 고정 가상 seed를 넣는다. bootstrap은 로컬 기본 비밀번호를 별도 임의 비밀번호로 치환하고 임시 SQL을 즉시 삭제한다. seed의 고정 Auth 사용자 upsert는 재실행 시 현재 hosted 시연 비밀번호로 해시를 회전한다. 합성 seed의 실제 SVG, WebM, 텍스트 증거 원본은 `apps/web/public/demo-evidence/case-synthetic-001`에서 생성하고 `upload-synthetic-evidence`로 private Storage bucket에 올린다. 예약 작업은 `supabase/cron.example.sql`에서 Vault, `pg_cron`, `pg_net`으로 등록한다.
+
+직원 웹의 영구 공개 배포는 루트 `vercel.json`에서 `npm run build --workspace @ieumlog/web`와 `apps/web/dist` 출력 경로를 사용해 워크스페이스 패키지까지 함께 빌드한다. Vite preview 기반 임시 외부 시연은 `VITE_PREVIEW_ALLOWED_HOSTS=*`를 명시한 경우에만 quick tunnel host를 허용한다.
+
+브랜드 자산은 모바일용 PNG와 웹용 public 자산으로 분리한다. Expo는 `apps/mobile/assets/icon.png`, `adaptive-icon.png`, `logo.png`를 앱 아이콘, adaptive icon, splash, 화면 로고에 사용한다. 웹은 `apps/web/public/ieumlog-logo.png`, `ieumlog-icon.png`, `favicon.svg`를 정적 public 경로로 제공하고 React 화면에서는 `/ieumlog-logo.png`, `/ieumlog-icon.png`를 참조한다. PNG 로고와 아이콘은 `scripts/generate-brand-assets.mjs`와 루트 `generate:brand` 명령으로 같은 도형 규칙에서 재생성한다.
+
+Vite 웹은 라우터 의존성을 추가하지 않고 `window.location.pathname`으로 `/student`를 감지해 학생 전용 React 앱을 렌더링한다. 기존 `/` 경로의 직원 로그인, 상담자, 기관 관리자, 플랫폼 관리자 화면은 `DemoAppProvider`와 `WebApiClient`를 계속 사용한다. `/student`는 `StudentWebApiClient`를 통해 모바일 학생 API와 같은 Supabase Auth, REST, Edge Function 경로를 호출하며 직원 snapshot 상태와 storage key를 공유하지 않는다.
 
 ## Domain
 
 핵심 엔터티는 `CaseRecord`, `FactBlock`, `EvidenceAsset`, `ProcessingJob`, `MissingInfoQuestion`, `Assignment`, `RetentionPolicy`이다. `CaseRecord`가 상태 전이와 제출 잠금을 책임지고, `AccessPolicy`가 역할별 접근 판단을 담당한다. 관계도 노드와 간선은 사건 ID를 보존해 여러 사건의 합성·연결 데이터가 화면에서 섞이지 않도록 한다.
 
-`CaseHandoffCode`는 학생 제출 이후 생성 가능한 1회용 사건 인계 코드를 표현한다. 평문 코드는 앱에 한 번만 반환하고 DB에는 pepper 기반 해시만 저장한다. `RelationGraphLayout`은 사람 노드와 관계 간선을 받아 자동 좌표, 노드 경계 기준 화살표 시작·끝점, 포커스 그래프를 순수 함수로 계산한다. 웹은 이 결과만 SVG로 그리며 화면에서 Supabase를 직접 호출하지 않는다.
+`CaseHandoffCode`는 학생 제출 이후 생성 가능한 1회용 사건 인계 코드를 표현한다. 평문 코드는 앱에 한 번만 반환하고 DB에는 pepper 기반 해시만 저장한다. `RelationGraphLayout`은 사람 노드와 관계 간선을 받아 자동 좌표, 레인 그룹, 연결 밀도, 노드 경계 기준 화살표 시작·끝점, 곡선 병렬 간선, 포커스 그래프를 순수 함수로 계산한다. 웹은 이 결과만 SVG 카드형 관계판으로 그리며 화면에서 Supabase를 직접 호출하지 않는다.
 
 외부 경계는 `Analyzer`, `CaseRepository`, `EvidenceRepository`, `DraftStore`, `IdentityGateway` 인터페이스로 분리한다. 모바일의 `SecureDraftStore`는 `DraftStore` 구현이며, `StudentApiClient`는 Supabase Auth, REST, Edge Functions, Storage 서명 URL을 화면에서 분리한다. 웹의 `WebApiClient`도 직원 Auth, RLS 조회, RPC, 관리자 Edge Function 호출을 React 화면에서 분리한다.
+`StudentApiClient`는 로그인 전 Edge Function 호출에도 공개 key 기반 `Authorization` 헤더를 붙여 hosted 환경의 pre-auth 함수 정책과 맞춘다. 로그인 뒤에는 학생 JWT로 사건, 증거, 질문, FactBlock뿐 아니라 `people`, `relations`를 읽어 모바일 홈·확인·제출 완료 화면의 읽기 전용 관계도와 타임라인을 구성한다.
+`OnDeviceAiEngine`은 모바일 앱 내부에서 `RuleBasedAnalyzer`를 감싼 온디바이스 분석 경계다. 인터넷이 없을 때도 메모를 FactBlock, 확인 질문, 로컬 인물 노드, 로컬 관계 간선으로 변환한다. 향후 네이티브 LLM 런타임을 도입할 때도 화면은 이 경계의 결과만 사용한다.
+`SecureOfflineSyncStore`는 오프라인 작성 사건의 학생 ID, 로컬 사건 ID, 메모, 단계, 제출 의사를 SecureStore에 저장한다. 인터넷 복구 뒤 앱은 학생 로그인, 서버 사건 생성·복원, 메모 저장, 가능한 파일 업로드, 서버 분석, 제출 의사 반영을 순서대로 실행한다. 증거 파일 원본은 오프라인에 복제하지 않으므로 앱 종료 뒤에는 다시 선택이 필요할 수 있다.
+학생 웹의 `StudentWebApiClient`는 브라우저 표준 `fetch`, `File`, `sessionStorage`만 사용한다. 모바일 전용 `SecureStore`, `DocumentPicker`, `expo-audio` 의존성은 가져오지 않고, 파일 업로드는 `<input type="file" multiple>`과 서명 PUT URL로 처리한다.
 
-상담자 웹의 PDF 저장은 브라우저 인쇄를 사용하되 화면 탭과 분리된 인쇄 전용 요약을 렌더링한다. 요약에는 익명 식별자, FactBlock, 증거 목록, 확인 필요 항목만 포함하고 상담자 내부 메모와 법률 판단 문구는 제외한다. 연결 snapshot은 `fact_block_evidence`를 함께 읽어 FactBlock의 `evidenceIds`를 복원한다. 증거맵은 이 연결만 표시하고 연결이 없는 파일에 임의 진술 번호를 만들지 않는다. 증거 미리보기와 다운로드는 짧은 수명의 Storage 서명 URL을 사용한다. 이미지·PDF·음성·영상은 화면 안에서 열고, 일반 문서는 다운로드로 원본을 확인한다. 로컬 Supabase Storage가 반환하는 내부 `kong:8000` URL은 API 공개 주소로 치환한다.
+상담자 웹의 PDF 저장은 브라우저 인쇄를 사용하되 화면 탭과 분리된 인쇄 전용 요약을 렌더링한다. 요약에는 익명 식별자, FactBlock, 증거 목록, 확인 필요 항목만 포함하고 상담자 내부 메모와 법률 판단 문구는 제외한다. 연결 snapshot은 `fact_block_evidence`를 함께 읽어 FactBlock의 `evidenceIds`를 복원한다. 증거맵은 이 연결만 표시하고 연결이 없는 파일에 임의 진술 번호를 만들지 않는다. 증거 미리보기와 다운로드는 짧은 수명의 Storage 서명 URL을 사용한다. 이미지·PDF·음성·영상과 텍스트 문서는 화면 안에서 열고, 그 외 일반 문서는 다운로드로 원본을 확인한다. 로컬 Supabase Storage가 반환하는 내부 `kong:8000` URL은 API 공개 주소로 치환한다. 오프라인 demo provider는 같은 합성 증거 파일을 public URL로 fallback해, private Storage가 아직 채워지지 않은 시연 환경에서도 사건철 미리보기가 비지 않게 한다.
 
 ## Backend
 
@@ -55,11 +65,16 @@ flowchart LR
 
 관계도 수동 배치는 `people.position_x`, `position_y`, `position_locked`에 저장한다. `save-relation-layout`은 상담자·기관 관리자·플랫폼 관리자 권한을 확인하고 같은 사건의 노드만 0~100 좌표 범위로 갱신한다. 외부기관 읽기 전용 사건철 공유는 아직 구현하지 않고, 내부 사건철과 PDF 요약 고도화 뒤 별도 보안 검토 항목으로 유지한다.
 
+직원 웹 관계도 탭은 `RelationGraphLayout`을 SVG와 사건 행위 매트릭스가 공유한다. 매트릭스는 `FactBlock`의 시간·장소·행위·인물·증거를 행 단위로 보여주고, 행 선택 시 FactBlock 텍스트와 `RelationGraphNode` 라벨을 정규화해 관련 노드와 간선 집합을 계산한다. SVG는 이 spotlight 집합을 받아 관련 요소만 강조하고 나머지는 흐리게 렌더링한다. 노드는 인물 카드 형태로 표시하고 관계선은 `행위·갈등`, `지원·보호`, `목격·간접` 범례 색을 따른다. 노드와 간선을 직접 선택하면 기존 `focusRelationGraph()` 결과를 사용해 1차 관계 사건철 모달을 연다.
+
 ## Input and session guards
 
 - `cases.memo`는 Postgres에서 `1000자`로 제한하고 Expo 입력도 같은 한도를 사용한다.
 - `WebApiClient`가 직원 토큰 갱신을 소유한다. 만료 30초 이내의 요청은 하나의 refresh promise를 공유한 뒤 진행한다.
 - `StudentApiClient`도 SecureStore 세션을 읽고 만료 30초 이내의 polling·Realtime 요청이 하나의 refresh promise를 공유하게 한다. 손상된 세션 JSON은 로그아웃 처리한다.
+- 학생 로그인 Edge Function 호출은 세션이 없을 때도 publishable 또는 legacy anon key를 bearer로 사용한다. 샘플 ID의 hosted/local 데모 비밀번호 차이는 화면 helper에서만 보정하고 API 계층에는 실제 입력 또는 보정된 비밀번호만 전달한다.
+- SecureStore 키 생성은 `secureStoreKey()`로 통일한다. Expo가 허용하지 않는 `:` 같은 문자는 `_`로 치환해 Android에서 세션 저장과 초안 청크 저장이 실패하지 않게 한다.
+- `StudentWebApiClient`는 학생 웹 세션을 `ieumlog:web-student-session`에만 저장하고 만료 30초 이내 refresh 요청을 하나로 공유한다. 브라우저 학생 임시 초안은 `sessionStorage`에만 두며 파일 객체는 저장하지 않는다.
 - 상담자 관계도는 `people` 노드와 `relations` 간선을 사건 ID로 필터링해 렌더링한다. 고정 연결 장식을 데이터 연결로 오인하지 않게 한다.
 - `_shared/openai.ts`는 기본적으로 공식 `https://api.openai.com`을 사용한다. `OPENAI_API_BASE_URL`은 로컬 Edge 단위 테스트에서만 stub endpoint를 주입하기 위한 서버 전용 경계이며 hosted deploy 템플릿에는 넣지 않는다.
 - `SecureDraftStore`는 `draftChunks.ts`의 순수 직렬화 계층을 사용한다. UTF-8 바이트 기준으로 작은 청크를 만들고, 읽을 때 메모 `1000자`, 단계 `0..5`, 유효 날짜, 최대 `16`개 청크를 검증하며 손상된 청크를 삭제한다.

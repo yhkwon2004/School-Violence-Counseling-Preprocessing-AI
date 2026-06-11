@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 430" role="img" aria-label="이음로그 로고">
+  <rect width="760" height="430" rx="36" fill="#ffffff"/>
+  <svg x="170" y="14" width="420" height="300" viewBox="0 0 512 512">
+    <defs>
+      <linearGradient id="ieumlog-logo-gradient" x1="95" x2="420" y1="120" y2="300" gradientUnits="userSpaceOnUse">
+        <stop offset="0" stop-color="#062d62"/>
+        <stop offset="0.55" stop-color="#2f4964"/>
+        <stop offset="1" stop-color="#9aa7b3"/>
+      </linearGradient>
+    </defs>
+    <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M93 232c-26-92 54-171 141-136 42 17 63 55 69 93H214c-58 0-88 56-52 96 19 22 57 23 78 2l24-24h70" stroke="#062d62" stroke-width="42"/>
+      <path d="M419 232c26-92-54-171-141-136-42 17-63 55-69 93h89c58 0 88 56 52 96-19 22-57 23-78 2l-24-24h-70" stroke="#8d9ba8" stroke-width="42"/>
+      <path d="M256 207v154" stroke="url(#ieumlog-logo-gradient)" stroke-width="25"/>
+      <path d="M256 361l-19 48h38z" stroke="url(#ieumlog-logo-gradient)" stroke-width="15" fill="#ffffff"/>
+      <path d="M76 305c68 3 122 23 180 92 58-69 112-89 180-92" stroke="#062d62" stroke-width="26"/>
+      <path d="M70 348c73 0 128 14 186 49 58-35 113-49 186-49" stroke="#062d62" stroke-width="22"/>
+      <path d="M205 207h102" stroke="url(#ieumlog-logo-gradient)" stroke-width="30"/>
+      <circle cx="205" cy="207" r="21" fill="#062d62" stroke="none"/>
+      <circle cx="307" cy="207" r="21" fill="#596a7a" stroke="none"/>
+    </g>
+  </svg>
+  <text x="380" y="345" fill="#062d62" font-family="Pretendard, 'Noto Sans KR', 'Malgun Gothic', sans-serif" font-size="76" font-weight="800" letter-spacing="20" text-anchor="middle">이음로그</text>
+  <line x1="352" x2="408" y1="374" y2="374" stroke="#8d9ba8" stroke-width="4" stroke-linecap="round"/>
+  <text x="380" y="407" fill="#53657b" font-family="Pretendard, 'Noto Sans KR', 'Malgun Gothic', sans-serif" font-size="27" font-weight="500" text-anchor="middle">기록이 모여 사회를 잇고, 문화를 만듭니다.</text>
+</svg>

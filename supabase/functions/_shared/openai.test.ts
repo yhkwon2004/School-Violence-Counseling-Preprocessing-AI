@@ -44,7 +44,7 @@ describe('analyzeEvidence', () => {
     expect(init?.headers).toMatchObject({ Authorization: 'Bearer local-stub-key' });
     const body = JSON.parse(String(init?.body));
     expect(body).toMatchObject({
-      model: 'gpt-5.4-mini',
+      model: 'gpt-4.1-mini',
       store: false,
       input: [{
         role: 'user',

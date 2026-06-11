@@ -144,6 +144,30 @@ try {
   assert(counselor.institution === '부산 이음 Wee센터', 'Counselor workspace did not render the active institution.');
   assert(counselor.evidenceLabels.includes('진술 1'), 'Evidence map did not render the first stored FactBlock link.');
   assert(counselor.evidenceLabels.includes('진술 2, 진술 3'), 'Evidence map did not render the stored multi-FactBlock link.');
+  const relationMatrix = await evaluate(client, `(() => ({
+    headers: [...document.querySelectorAll('.relation-matrix-table th')].map((node) => node.textContent.trim()),
+    rows: document.querySelectorAll('.relation-matrix-table tbody tr').length,
+  }))()`);
+  for (const header of ['사건', '시간', '장소', '행위', '인물', '관계', '증거']) {
+    assert(relationMatrix.headers.includes(header), `Relation case-action matrix is missing the ${header} column.`);
+  }
+  assert(relationMatrix.rows >= 3, 'Relation case-action matrix did not render the seeded FactBlocks.');
+  await evaluate(client, `(() => {
+    document.querySelector('.relation-matrix-table tbody tr')?.click();
+    return true;
+  })()`);
+  await waitFor(client, 'document.querySelector(".relation-matrix-table tbody tr.active")', 'active relation matrix row');
+  const relationSpotlight = await evaluate(client, `(() => ({
+    activeRows: document.querySelectorAll('.relation-matrix-table tbody tr.active').length,
+    dimmedNodes: document.querySelectorAll('.relation-svg-node.dimmed').length,
+    spotlightEdges: document.querySelectorAll('.relation-edge-group.spotlight').length,
+    spotlightNodes: document.querySelectorAll('.relation-svg-node.spotlight').length,
+  }))()`);
+  assert(relationSpotlight.activeRows === 1, 'Relation matrix row selection did not stay visible.');
+  assert(relationSpotlight.spotlightNodes >= 2, 'Relation graph did not spotlight the FactBlock people.');
+  assert(relationSpotlight.spotlightEdges >= 1, 'Relation graph did not spotlight the FactBlock relation edge.');
+  assert(relationSpotlight.dimmedNodes >= 1, 'Relation graph did not dim unrelated people.');
+  await screenshot(client, 'counselor-relation-matrix.png');
   await evaluate(client, `(() => {
     const button = [...document.querySelectorAll('.tab-list button')].find((node) => node.textContent.trim() === '증거맵');
     button?.click();

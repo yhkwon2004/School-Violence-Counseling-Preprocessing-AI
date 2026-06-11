@@ -14,12 +14,13 @@ import {
   X,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import type { PointerEvent, ReactNode } from 'react';
+import type { KeyboardEvent, PointerEvent, ReactNode } from 'react';
 import {
   buildRelationGraphLayout,
   focusRelationGraph,
   type CaseRecord,
   type EvidenceAsset,
+  type FactBlock,
   type FocusedGraphElement,
   type RelationGraphLayout,
   type RelationGraphNode,
@@ -324,6 +325,8 @@ function AdvancedRelationsPanel({ caseId }: { caseId: string }) {
   const [draftPositions, setDraftPositions] = useState<Record<string, { x: number; y: number }>>({});
   const [draggingNodeId, setDraggingNodeId] = useState<string | null>(null);
   const [focused, setFocused] = useState<FocusedGraphElement | null>(null);
+  const [selectedElement, setSelectedElement] = useState<FocusedGraphElement | null>(null);
+  const [selectedFactId, setSelectedFactId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const people = dataset.people.filter((person) => person.caseId === caseId);
   const relations = dataset.relations.filter((relation) => relation.caseId === caseId);
@@ -337,9 +340,15 @@ function AdvancedRelationsPanel({ caseId }: { caseId: string }) {
       : [];
   });
   const layout = useMemo(
-    () => buildRelationGraphLayout(people, relations, savedPositions),
+    () => buildRelationGraphLayout(people, relations, savedPositions, 11),
     [people, relations, savedPositions],
   );
+  const selectedSpotlight = useMemo(() => {
+    const selectedFact = dataset.factBlocks.find((fact) => fact.caseId === caseId && fact.id === selectedFactId);
+    if (selectedFact) return buildFactSpotlight(selectedFact, layout);
+    if (selectedElement) return buildElementSpotlight(layout, selectedElement);
+    return emptySpotlight();
+  }, [caseId, dataset.factBlocks, layout, selectedElement, selectedFactId]);
   const dirty = Object.keys(draftPositions).length > 0;
 
   function moveDraggingNode(event: PointerEvent<SVGSVGElement>) {
@@ -370,11 +379,24 @@ function AdvancedRelationsPanel({ caseId }: { caseId: string }) {
     }
   }
 
+  function selectGraphElement(target: FocusedGraphElement) {
+    setSelectedElement(target);
+    setSelectedFactId(null);
+    setFocused(target);
+  }
+
+  function selectFact(factId: string) {
+    const fact = dataset.factBlocks.find((item) => item.caseId === caseId && item.id === factId);
+    const spotlight = fact ? buildFactSpotlight(fact, layout) : emptySpotlight();
+    setSelectedFactId(factId);
+    setSelectedElement(deriveElementFromSpotlight(spotlight));
+  }
+
   return (
     <div className="content-grid relations-layout">
       <article className="panel relationship-panel advanced-relationship-panel">
         <div className="relationship-title-row">
-          <PanelTitle icon={Network} title="관계도" subtitle="화살표 방향과 연결 근거를 확인합니다" />
+          <PanelTitle icon={Network} title="정밀 관계도" subtitle="터치한 사건·인물 중심으로 관계를 조명합니다" />
           <button className="button secondary compact-button" disabled={!dirty || saving} onClick={() => void saveLayout()} type="button">
             {saving ? '저장 중' : '배치 저장'}
           </button>
@@ -384,12 +406,25 @@ function AdvancedRelationsPanel({ caseId }: { caseId: string }) {
             draggingNodeId={draggingNodeId}
             layout={layout}
             onMove={moveDraggingNode}
-            onSelect={setFocused}
+            onSelect={selectGraphElement}
             onStartDrag={setDraggingNodeId}
             onStopDrag={() => setDraggingNodeId(null)}
+            selectedElement={selectedElement}
+            spotlight={selectedSpotlight}
           />
         </div>
-        <p className="relation-help">노드를 끌어 위치를 보정하고, 원 또는 화살표를 클릭하면 해당 관계만 확대해서 볼 수 있습니다.</p>
+        <div className="graph-density-strip" aria-label="관계도 요약">
+          <span>인물 {layout.density.nodeCount}명</span>
+          <span>관계 {layout.density.edgeCount}개</span>
+          <span>최대 연결 {layout.density.maxDegree}건</span>
+          <span>행/열 기반 자동 배치</span>
+        </div>
+        <div className="relation-color-legend" aria-label="관계선 범례">
+          <span className="danger">행위·갈등</span>
+          <span className="support">지원·보호</span>
+          <span className="neutral">목격·간접</span>
+        </div>
+        <p className="relation-help">행위 매트릭스의 행을 누르면 해당 사건의 인물이 밝아지고, 원 또는 화살표를 누르면 사건철 포커스로 확대됩니다.</p>
         <ul className="relation-legend">
           {relations.map((relation) => (
             <li key={relation.id}>
@@ -399,7 +434,12 @@ function AdvancedRelationsPanel({ caseId }: { caseId: string }) {
           ))}
         </ul>
       </article>
-      <TimelineCard caseId={caseId} compact />
+      <RelationMatrixCard
+        caseId={caseId}
+        layout={layout}
+        onSelectFact={selectFact}
+        selectedFactId={selectedFactId}
+      />
       <EvidenceCard caseId={caseId} compact />
       <NotesCard caseId={caseId} />
       {focused && (
@@ -421,6 +461,8 @@ function RelationGraphSvg({
   onSelect,
   onStartDrag,
   onStopDrag,
+  selectedElement,
+  spotlight,
 }: {
   draggingNodeId?: string | null;
   layout: RelationGraphLayout;
@@ -428,7 +470,10 @@ function RelationGraphSvg({
   onSelect?: (target: FocusedGraphElement) => void;
   onStartDrag?: (id: string) => void;
   onStopDrag?: () => void;
+  selectedElement?: FocusedGraphElement | null;
+  spotlight?: RelationSpotlight;
 }) {
+  const hasSpotlight = Boolean(spotlight?.active);
   return (
     <svg
       aria-label="정밀 관계도"
@@ -440,52 +485,104 @@ function RelationGraphSvg({
       viewBox="0 0 100 100"
     >
       <defs>
+        <linearGradient id="relation-card-fill" x1="0" x2="1" y1="0" y2="1">
+          <stop offset="0%" stopColor="#ffffff" />
+          <stop offset="100%" stopColor="#f3f7fc" />
+        </linearGradient>
+        <linearGradient id="relation-avatar-fill" x1="0" x2="1" y1="0" y2="1">
+          <stop offset="0%" stopColor="#dce5ef" />
+          <stop offset="100%" stopColor="#8fa0b2" />
+        </linearGradient>
         <marker id="relation-arrow" markerHeight="5" markerWidth="5" orient="auto" refX="4.5" refY="2.5">
-          <path d="M0,0 L5,2.5 L0,5 Z" />
+          <path d="M0,0 L5,2.5 L0,5 Z" fill="context-stroke" />
         </marker>
       </defs>
+      {layout.lanes.map((lane) => (
+        <g className={`relation-lane relation-lane-${lane.id}`} key={lane.id}>
+          <rect height={lane.height} rx="3.2" width={lane.width} x={lane.x} y={lane.y} />
+          <text className="relation-lane-label" x={lane.x + lane.width / 2} y={lane.y + 4.9}>{lane.label}</text>
+        </g>
+      ))}
       {layout.edges.map((edge) => (
-        <g className="relation-edge-group" key={edge.id}>
-          <line
-            className={`relation-svg-edge ${edge.indirect ? 'dashed' : ''}`}
+        <g
+          className={[
+            'relation-edge-group',
+            selectedElement?.kind === 'edge' && selectedElement.id === edge.id ? 'selected' : '',
+            hasSpotlight && spotlight?.edgeIds.has(edge.id) ? 'spotlight' : '',
+            hasSpotlight && !spotlight?.edgeIds.has(edge.id) ? 'dimmed' : '',
+          ].filter(Boolean).join(' ')}
+          key={edge.id}
+        >
+          <path
+            className={`relation-svg-edge ${relationEdgeTone(layout, edge)} ${edge.indirect ? 'dashed' : ''}`}
+            d={`M ${edge.from.x} ${edge.from.y} Q ${edge.control.x} ${edge.control.y} ${edge.to.x} ${edge.to.y}`}
             markerEnd="url(#relation-arrow)"
             onClick={() => onSelect?.({ kind: 'edge', id: edge.id })}
-            x1={edge.from.x}
-            x2={edge.to.x}
-            y1={edge.from.y}
-            y2={edge.to.y}
+          />
+          <path
+            aria-hidden="true"
+            className="relation-svg-edge-hitbox"
+            d={`M ${edge.from.x} ${edge.from.y} Q ${edge.control.x} ${edge.control.y} ${edge.to.x} ${edge.to.y}`}
+            onClick={() => onSelect?.({ kind: 'edge', id: edge.id })}
           />
           <text className="relation-edge-label" x={edge.mid.x} y={edge.mid.y - 1.8}>{edge.label}</text>
+          <text className="relation-edge-terminal-label start" x={edge.from.x} y={edge.from.y - 1.8}>{edge.startLabel}</text>
+          <text className="relation-edge-terminal-label end" x={edge.to.x} y={edge.to.y + 3.4}>{edge.endLabel}</text>
         </g>
       ))}
       {layout.nodes.map((node) => (
         <RelationGraphNodeView
           dragging={draggingNodeId === node.id}
+          dimmed={hasSpotlight && !spotlight?.nodeIds.has(node.id)}
           key={node.id}
           node={node}
           onSelect={onSelect}
           onStartDrag={onStartDrag}
+          selected={selectedElement?.kind === 'node' && selectedElement.id === node.id}
+          spotlighted={hasSpotlight && Boolean(spotlight?.nodeIds.has(node.id))}
         />
       ))}
     </svg>
   );
 }
 
+function relationEdgeTone(layout: RelationGraphLayout, edge: RelationGraphLayout['edges'][number]) {
+  const from = layout.nodes.find((node) => node.id === edge.fromPersonId);
+  const to = layout.nodes.find((node) => node.id === edge.toPersonId);
+  if (edge.indirect || from?.tone === 'neutral' || to?.tone === 'neutral') return 'neutral';
+  if (from?.tone === 'support' || to?.tone === 'support') return 'support';
+  if (from?.tone === 'danger' || to?.tone === 'danger') return 'danger';
+  return 'primary';
+}
+
 function RelationGraphNodeView({
+  dimmed,
   dragging,
   node,
   onSelect,
   onStartDrag,
+  selected,
+  spotlighted,
 }: {
+  dimmed?: boolean;
   dragging: boolean;
   node: RelationGraphNode;
   onSelect?: (target: FocusedGraphElement) => void;
   onStartDrag?: (id: string) => void;
+  selected?: boolean;
+  spotlighted?: boolean;
 }) {
   const lines = node.label.split('\n');
   return (
     <g
-      className={`relation-svg-node ${node.tone} ${dragging ? 'dragging' : ''}`}
+      className={[
+        'relation-svg-node',
+        node.tone,
+        dragging ? 'dragging' : '',
+        selected ? 'selected' : '',
+        spotlighted ? 'spotlight' : '',
+        dimmed ? 'dimmed' : '',
+      ].filter(Boolean).join(' ')}
       onClick={() => onSelect?.({ kind: 'node', id: node.id })}
       onPointerDown={(event) => {
         event.currentTarget.setPointerCapture(event.pointerId);
@@ -495,12 +592,92 @@ function RelationGraphNodeView({
       tabIndex={0}
       transform={`translate(${node.x} ${node.y})`}
     >
-      <circle r="8.5" />
+      <rect className="relation-svg-node-card" height="20.8" rx="2.6" width="17.4" x="-8.7" y="-11" />
+      <circle className="relation-avatar" cy="-4" r="4.7" />
+      <path className="relation-avatar-core" d="M -2.8 -3.1 C -2.5 -5.5 2.5 -5.5 2.8 -3.1 C 2.4 -1.8 1.4 -1.1 0 -1.1 C -1.4 -1.1 -2.4 -1.8 -2.8 -3.1 Z M -4.2 1 C -3.2 -1.5 3.2 -1.5 4.2 1 L 4.2 2.8 L -4.2 2.8 Z" />
+      <circle className="relation-node-rank-badge" cx="-6.1" cy="-8.3" r="2" />
+      <text className="relation-node-rank" x="-6.1" y="-7.6" textAnchor="middle">{node.rank}</text>
       {lines.map((line, index) => (
-        <text dy={index === 0 ? -1.2 : 3.1} key={`${node.id}-${line}`} textAnchor="middle">{line}</text>
+        <text dy={index === 0 ? 4.4 : 7.7} key={`${node.id}-${line}`} textAnchor="middle">{line}</text>
       ))}
-      <text className="relation-node-caption" dy="7.4" textAnchor="middle">{node.relation}</text>
+      <text className="relation-node-caption" dy="10.2" textAnchor="middle">{node.relation}</text>
     </g>
+  );
+}
+
+function RelationMatrixCard({
+  caseId,
+  layout,
+  onSelectFact,
+  selectedFactId,
+}: {
+  caseId: string;
+  layout: RelationGraphLayout;
+  onSelectFact: (factId: string) => void;
+  selectedFactId: string | null;
+}) {
+  const { dataset } = useDemoApp();
+  const facts = dataset.factBlocks
+    .filter((fact) => fact.caseId === caseId)
+    .sort((left, right) => left.sequence - right.sequence);
+
+  function handleKeyDown(event: KeyboardEvent<HTMLTableRowElement>, factId: string) {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault();
+    onSelectFact(factId);
+  }
+
+  return (
+    <article className="panel relation-matrix-panel">
+      <PanelTitle icon={FileText} title="사건 행위 매트릭스" subtitle="사건·시간·행위·인물 열로 재정렬" />
+      <div className="relation-matrix-scroll">
+        <table className="relation-matrix-table">
+          <thead>
+            <tr>
+              <th>사건</th>
+              <th>시간</th>
+              <th>장소</th>
+              <th>행위</th>
+              <th>인물</th>
+              <th>관계</th>
+              <th>증거</th>
+            </tr>
+          </thead>
+          <tbody>
+            {facts.map((fact) => {
+              const spotlight = buildFactSpotlight(fact, layout);
+              const nodes = layout.nodes.filter((node) => spotlight.nodeIds.has(node.id));
+              const edges = layout.edges.filter((edge) => spotlight.edgeIds.has(edge.id));
+              return (
+                <tr
+                  className={selectedFactId === fact.id ? 'active' : ''}
+                  key={fact.id}
+                  onClick={() => onSelectFact(fact.id)}
+                  onKeyDown={(event) => handleKeyDown(event, fact.id)}
+                  role="button"
+                  tabIndex={0}
+                >
+                  <td className="matrix-case-cell" data-label="사건">진술 {fact.sequence}</td>
+                  <td data-label="시간">{formatDate(fact.occurredAt)}</td>
+                  <td data-label="장소">{fact.location ?? '장소 확인 필요'}</td>
+                  <td data-label="행위"><strong className="matrix-action">{fact.action}</strong></td>
+                  <td data-label="인물">
+                    <div className="matrix-person-chips">
+                      {nodes.length ? nodes.map((node) => (
+                        <span className={`matrix-person-chip ${node.tone}`} key={node.id}>{node.label.replace(/\n/g, ' ')}</span>
+                      )) : <span className="quiet-copy">인물 확인 필요</span>}
+                    </div>
+                  </td>
+                  <td data-label="관계">{edges.length ? edges.map((edge) => edge.label).join(' · ') : '직접 관계 없음'}</td>
+                  <td data-label="증거">{fact.evidenceIds.length ? `${fact.evidenceIds.length}개` : '미연결'}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <p className="relation-help">표 행을 누르면 관계도에서 관련 인물과 화살표만 밝게 남습니다.</p>
+    </article>
   );
 }
 
@@ -565,6 +742,79 @@ function RelationFocusDialog({
       </section>
     </div>
   );
+}
+
+type RelationSpotlight = {
+  nodeIds: Set<string>;
+  edgeIds: Set<string>;
+  active: boolean;
+};
+
+function emptySpotlight(): RelationSpotlight {
+  return { active: false, edgeIds: new Set<string>(), nodeIds: new Set<string>() };
+}
+
+function buildElementSpotlight(layout: RelationGraphLayout, target: FocusedGraphElement): RelationSpotlight {
+  const focusedLayout = focusRelationGraph(layout, target);
+  return {
+    active: true,
+    edgeIds: new Set(focusedLayout.edges.map((edge) => edge.id)),
+    nodeIds: new Set(focusedLayout.nodes.map((node) => node.id)),
+  };
+}
+
+function buildFactSpotlight(fact: FactBlock, layout: RelationGraphLayout): RelationSpotlight {
+  const factText = normalizeRelationText(`${fact.actor ?? ''} ${fact.target ?? ''} ${fact.action}`);
+  const nodeIds = new Set<string>();
+  for (const node of layout.nodes) {
+    if (personSearchAliases(node).some((alias) => factText.includes(alias))) {
+      nodeIds.add(node.id);
+    }
+  }
+
+  const edgeIds = new Set<string>();
+  for (const edge of layout.edges) {
+    const hasFrom = nodeIds.has(edge.fromPersonId);
+    const hasTo = nodeIds.has(edge.toPersonId);
+    const actionMentionsRelation = normalizeRelationText(fact.action).includes(normalizeRelationText(edge.label));
+    if ((hasFrom && hasTo) || ((hasFrom || hasTo) && actionMentionsRelation)) {
+      edgeIds.add(edge.id);
+    }
+  }
+
+  return {
+    active: nodeIds.size > 0 || edgeIds.size > 0,
+    edgeIds,
+    nodeIds,
+  };
+}
+
+function deriveElementFromSpotlight(spotlight: RelationSpotlight): FocusedGraphElement | null {
+  const firstEdgeId = spotlight.edgeIds.values().next().value as string | undefined;
+  if (firstEdgeId) return { id: firstEdgeId, kind: 'edge' };
+  const firstNodeId = spotlight.nodeIds.values().next().value as string | undefined;
+  if (firstNodeId) return { id: firstNodeId, kind: 'node' };
+  return null;
+}
+
+function personSearchAliases(node: RelationGraphNode) {
+  const rawAliases = [
+    node.label,
+    ...node.label.split('\n'),
+  ];
+  return Array.from(new Set(
+    rawAliases
+      .map((alias) => normalizeRelationText(alias.replace(/익명/g, '')))
+      .filter((alias) => alias.length >= 2),
+  ));
+}
+
+function normalizeRelationText(value: string) {
+  return value
+    .replace(/[()]/g, ' ')
+    .replace(/\s+/g, '')
+    .trim()
+    .toLowerCase();
 }
 
 function clampGraphCoordinate(value: number) {
@@ -722,6 +972,7 @@ function EvidencePreviewBody({ asset, url }: { asset: EvidenceAsset; url: string
   if (asset.kind === 'pdf') return <iframe src={url} title={`${asset.fileName} PDF 미리보기`} />;
   if (asset.kind === 'audio') return <audio controls src={url}><track kind="captions" /></audio>;
   if (asset.kind === 'video') return <video controls src={url}><track kind="captions" /></video>;
+  if (asset.mimeType.startsWith('text/')) return <iframe src={url} title={`${asset.fileName} 문서 미리보기`} />;
   return <p>이 파일 형식은 브라우저 안에서 직접 표시하지 않습니다. 다운로드 버튼으로 원본을 확인해 주세요.</p>;
 }
 

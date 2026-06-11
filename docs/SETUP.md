@@ -89,9 +89,10 @@ npm.cmd run verify:mobile
 4. `npm.cmd run deploy:supabase -- -ProjectRef yourprojectref1234567`로 DB와 Edge Functions를 배포한다.
 5. 격리된 합성 시연 프로젝트라면 `supabase/.env.hosted.example`을 무시 대상 `supabase/.env.hosted`로 복사하고 URL, anon key, 12자 이상의 별도 임의 시연 비밀번호를 채운다.
 6. 격리된 합성 시연 프로젝트에서만 `npm.cmd run bootstrap:hosted-demo -- -ProjectRef yourprojectref1234567 -ConfirmSyntheticDemo`를 실행한다. 운영 데이터 프로젝트에는 실행하지 않는다.
-7. `npm.cmd run verify:hosted`로 학생·상담자 로그인, RLS, private Storage 서명 URL, 문서 처리, 삭제 예약, cron secret 부재 차단을 확인한다.
-8. `supabase/cron.example.sql` placeholder를 교체하고 hosted SQL editor에서 한 번 실행한다.
-9. anon URL과 key는 웹·모바일 공개 환경변수에 등록한다.
+7. `npm.cmd run upload:synthetic:evidence -- -UseCliApiKey`로 합성 SVG, WebM, 텍스트 증거 원본을 private Storage bucket에 올린다. ignored env에 `SUPABASE_SECRET_KEY`가 있으면 `-UseCliApiKey` 없이 실행할 수 있다.
+8. `npm.cmd run verify:hosted`로 학생·상담자 로그인, RLS, private Storage 서명 URL, 문서 처리, 삭제 예약, cron secret 부재 차단을 확인한다.
+9. `supabase/cron.example.sql` placeholder를 교체하고 hosted SQL editor에서 한 번 실행한다.
+10. anon URL과 key는 웹·모바일 공개 환경변수에 등록한다.
 
 Hosted Supabase는 API 키를 Edge Functions에 자동 주입한다. custom deploy secret 파일에는 `OPENAI_API_KEY`, 모델 설정, `EXTERNAL_AI_MODE`, cron secret만 둔다.
 

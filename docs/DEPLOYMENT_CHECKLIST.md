@@ -71,10 +71,12 @@ npm.cmd run deploy:supabase -- -ProjectRef yourprojectref1234567
 
 ```powershell
 npm.cmd run bootstrap:hosted-demo -- -ProjectRef yourprojectref1234567 -ConfirmSyntheticDemo
+npm.cmd run upload:synthetic:evidence -- -UseCliApiKey
 npm.cmd run verify:hosted
 ```
 
 `verify:hosted`는 anon key 범위에서 학생·상담자 로그인, RLS, private Storage 서명 업로드·다운로드, 부분 업로드 정리, 중복 처리 접수 병합, 문서 manual review 처리, 삭제 예약, cron secret 부재 거절을 확인한다.
+`upload:synthetic:evidence`는 generated public 합성 증거 원본을 private `case-evidence` bucket의 seed storage path로 업로드한다. ignored env 파일에 `SUPABASE_SECRET_KEY`가 없으면 Supabase CLI 로그인 상태에서 `-UseCliApiKey`로 프로젝트 secret/service key를 메모리에서만 읽는다.
 시연 비밀번호를 변경했다면 같은 bootstrap 명령을 다시 실행한다. 고정 가상 Auth 계정 비밀번호 해시도 현재 `supabase/.env.hosted` 값으로 회전한다.
 
 Edge Function 배포 뒤 `supabase/cron.example.sql`의 placeholder 세 개를 교체하고 hosted SQL editor에서 한 번 실행한다. 템플릿은 Vault에 URL과 cron secret을 저장하고 다음 작업을 등록한다.
@@ -86,23 +88,31 @@ Edge Function 배포 뒤 `supabase/cron.example.sql`의 placeholder 세 개를 �
 
 ## 4. Vercel 웹
 
-Vercel 프로젝트 Root Directory를 `apps/web`으로 지정하고 다음 공개 환경변수만 등록한다.
+모노레포 루트에서 배포한다. 루트 `vercel.json`은 웹 빌드 명령을 `npm run build --workspace @ieumlog/web`로 지정하고 출력 디렉터리를 `apps/web/dist`로 둔다. 다음 공개 환경변수만 Vercel build env에 등록한다.
 
 ```text
 VITE_SUPABASE_URL=https://your-project-ref.supabase.co
 VITE_SUPABASE_ANON_KEY=your-publishable-or-anon-key
 ```
 
-`apps/web/vercel.json`은 Vite 빌드, `dist` 출력, SPA rewrite를 선언한다.
+`apps/web/vercel.json`은 앱 단독 배포 참고용 Vite 설정이며, 워크스페이스 의존성을 포함한 실제 모노레포 배포는 루트 `vercel.json`을 사용한다. Vercel 계정 결제나 권한 상태 때문에 영구 배포가 막힌 경우에는 hosted Supabase로 빌드된 `apps/web/dist`를 Vite preview로 띄우고 Cloudflare quick tunnel을 임시 시연 URL로 사용할 수 있다. 이 URL은 로컬 PC의 preview·tunnel 프로세스가 살아 있는 동안만 유효하다.
 
 ## 5. EAS Android Preview
 
-Expo 로그인 뒤 내부 배포 APK를 만든다.
+모바일 APK가 외부 인터넷에서 동작하려면 먼저 hosted Supabase URL과 공개 key를 앱에 번들링한다. `supabase/.env.hosted`를 사용하거나 명령 인자로 직접 전달한다.
+
+```powershell
+npm.cmd run configure:mobile:hosted
+```
+
+Expo 로그인과 EAS project 연결 뒤 내부 배포 APK를 만든다. 첫 빌드에서 project id를 이미 알고 있다면 자동화 스크립트에 `-ProjectId`를 전달한다.
 
 ```powershell
 npx.cmd eas login
-npx.cmd eas build --platform android --profile preview
+npm.cmd run build:student:apk -- -ProjectId your-eas-project-id
 ```
+
+스크립트는 EAS preview 빌드가 끝날 때까지 기다리고 `student_apk_download_url`, `student_apk_file`을 출력한다. `student_apk_download_url`을 Android에서 열면 APK를 내려받을 수 있다.
 
 내려받은 preview APK의 native manifest를 Android SDK Build Tools `26.0.2+`의 `aapt2`로 확인한다.
 

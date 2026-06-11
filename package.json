@@ -9,8 +9,8 @@
   "scripts": {
     "build": "npm run build --workspace @ieumlog/domain && npm run build --workspace @ieumlog/web",
     "test": "npm run test --workspace @ieumlog/domain && npm run test:mobile-core && npm run test:web-core && npm run test:edge",
-    "test:mobile-core": "vitest run apps/mobile/src/draftChunks.test.ts apps/mobile/src/memoUpdateQueue.test.ts apps/mobile/src/studentFlow.test.ts",
-    "test:web-core": "vitest run apps/web/src/evidenceMap.test.ts",
+    "test:mobile-core": "vitest run apps/mobile/src/draftChunks.test.ts apps/mobile/src/memoUpdateQueue.test.ts apps/mobile/src/studentFlow.test.ts apps/mobile/src/onDeviceAi.test.ts",
+    "test:web-core": "vitest run apps/web/src/evidenceMap.test.ts apps/web/src/student/studentFlow.test.ts",
     "test:edge": "vitest run supabase/functions/_shared/openai.test.ts supabase/functions/_shared/handoff.test.ts",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "dev:web": "npm run dev --workspace @ieumlog/web --",
@@ -20,6 +20,12 @@
     "supabase:reset": "npx supabase db reset",
     "configure:web:local": "powershell -ExecutionPolicy Bypass -File scripts/configure-web-local.ps1",
     "configure:mobile:lan": "powershell -ExecutionPolicy Bypass -File scripts/configure-mobile-lan.ps1",
+    "configure:mobile:hosted": "powershell -ExecutionPolicy Bypass -File scripts/configure-mobile-hosted.ps1",
+    "build:student:apk": "powershell -ExecutionPolicy Bypass -File scripts/build-student-apk.ps1",
+    "generate:brand": "node scripts/generate-brand-assets.mjs",
+    "generate:synthetic:evidence": "node scripts/generate-synthetic-evidence.mjs",
+    "smoke:openai:evidence": "node scripts/smoke-openai-evidence.mjs",
+    "upload:synthetic:evidence": "powershell -ExecutionPolicy Bypass -File scripts/upload-synthetic-evidence.ps1",
     "deploy:supabase": "powershell -ExecutionPolicy Bypass -File scripts/deploy-supabase.ps1",
     "bootstrap:hosted-demo": "powershell -ExecutionPolicy Bypass -File scripts/bootstrap-hosted-demo.ps1",
     "verify:deploy": "powershell -ExecutionPolicy Bypass -File scripts/verify-deploy-readiness.ps1",
@@ -32,6 +38,8 @@
     "verify:mobile": "cd apps/mobile && npx expo-doctor && npx expo export --platform android --clear"
   },
   "overrides": {
+    "expo-asset": "~12.0.13",
+    "expo-constants": "~18.0.13",
     "react": "19.1.0",
     "react-dom": "19.1.0"
   },
@@ -40,5 +48,8 @@
     "react-dom": "19.1.0",
     "supabase": "2.103.0",
     "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "expo-asset": "~12.0.13"
   }
 }

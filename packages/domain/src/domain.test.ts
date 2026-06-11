@@ -58,9 +58,35 @@ describe('RelationGraphLayout', () => {
 
     expect(edge.from.x).not.toBe(source.x);
     expect(edge.to.x).not.toBe(target.x);
-    expect(edge.from.x).toBeGreaterThan(source.x);
-    expect(edge.to.x).toBeLessThan(target.x);
+    expect(Math.hypot(edge.from.x - source.x, edge.from.y - source.y)).toBeCloseTo(10, 5);
+    expect(Math.hypot(edge.to.x - target.x, edge.to.y - target.y)).toBeCloseTo(10, 5);
     expect(edge.length).toBeLessThan(Math.hypot(target.x - source.x, target.y - source.y));
+  });
+
+  it('uses lane groups and offsets parallel investigative arrows', () => {
+    const people = [
+      { id: 'victim', caseId: 'case-1', label: '피해 학생', relation: '기록 작성자', tone: 'primary' as const },
+      { id: 'actor', caseId: 'case-1', label: '행위 학생', relation: '행위 단서', tone: 'danger' as const },
+      { id: 'witness', caseId: 'case-1', label: '목격 학생', relation: '상황 단서', tone: 'neutral' as const },
+      { id: 'teacher', caseId: 'case-1', label: '담임 교사', relation: '지원·보호', tone: 'support' as const },
+    ];
+    const relations = [
+      { id: 'relation-a', caseId: 'case-1', fromPersonId: 'actor', toPersonId: 'victim', label: '반복 발언' },
+      { id: 'relation-b', caseId: 'case-1', fromPersonId: 'actor', toPersonId: 'victim', label: '메신저 확산' },
+      { id: 'relation-c', caseId: 'case-1', fromPersonId: 'teacher', toPersonId: 'victim', label: '보호 조치', indirect: true },
+    ];
+
+    const layout = buildRelationGraphLayout(people, relations, [], 11);
+    const parallel = layout.edges.filter((edge) => edge.fromPersonId === 'actor' && edge.toPersonId === 'victim');
+
+    expect(layout.lanes.map((lane) => lane.id)).toEqual(['left', 'center', 'right', 'upper', 'lower']);
+    expect(layout.nodes.find((node) => node.id === 'victim')?.lane).toBe('center');
+    expect(layout.nodes.find((node) => node.id === 'actor')?.lane).toBe('right');
+    expect(layout.nodes.find((node) => node.id === 'teacher')?.lane).toBe('left');
+    expect(parallel).toHaveLength(2);
+    expect(parallel[0]?.parallelCount).toBe(2);
+    expect(parallel[0]?.control).not.toEqual(parallel[1]?.control);
+    expect(parallel[0]?.mid).not.toEqual(parallel[1]?.mid);
   });
 
   it('keeps only first-degree graph elements when focusing a node', () => {
@@ -72,8 +98,8 @@ describe('RelationGraphLayout', () => {
     );
 
     const focused = focusRelationGraph(layout, { kind: 'node', id: 'actor-b' });
-    expect(focused.nodes.map((node) => node.id).sort()).toEqual(['actor-b', 'victim']);
-    expect(focused.edges).toHaveLength(1);
+    expect(focused.nodes.map((node) => node.id).sort()).toEqual(['actor-b', 'student-c', 'victim']);
+    expect(focused.edges.map((edge) => edge.id).sort()).toEqual(['relation-1', 'relation-2']);
   });
 
   it('keeps only the selected relation and its endpoints when focusing an edge', () => {

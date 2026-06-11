@@ -1,6 +1,6 @@
 # 구현 상태
 
-최종 갱신: 2026-06-03
+최종 갱신: 2026-06-05
 
 ## 완료
 
@@ -13,6 +13,7 @@
 - 관리자 웹 연결 모드: 학생·상담자·기관 관리자 발급, 학생·상담자 활성 제어, 원자적 사건 배정·재배정, 기관 생성·이름·지역 수정·보관·재활성화, 기관 보관 기간 변경
 - 관리자·상담자 웹 인계 코드: 학생 앱 코드 입력으로 사건 확인, 상담자 제출 대기 사건 원자 가져오기, 관리자 배정 하이라이트
 - 학생 Expo 앱: 익명 ID 로그인 시연, 단계형 작성, 파일 선택, 처리 상태 배지, 분석, 질문, FactBlock 확인, 제출 잠금
+- 학생 Expo UX 고도화: 프리미엄 로그인, 샘플 계정 카드, `내 기록 홈`, 다음 행동 카드, 진행·증거·FactBlock·질문 상태 카드
 - 학생 Expo 연결 모드: Auth 세션 복구, 실제 사건 초안, 제출 사건 잠금 복원, 상담자 재개방 확인, 명시적 새 기록 작성, Storage 업로드, 처리 상태 Realtime 구독과 polling fallback, 질문 답변, 제출
 - 학생 Expo 제출 완료 화면: 1회용 관리자 전달 코드 생성, 만료 시각 표시, 복사, 삭제 요청 뒤 생성 차단
 - 학생 Expo 음성 정책: `expo-audio` 길이 확인, 플레이어 즉시 해제, 불필요한 마이크 권한 차단
@@ -22,17 +23,31 @@
 - Supabase 마이그레이션: Auth profile, 기관, 사건, 증거, 질문, 작업, 감사 로그, RLS, Storage, `evidence_assets` Realtime publication
 - Edge Functions: 학생 로그인, 사용자·기관 관리, 증거 URL, 원자적 불완전 업로드 예약 정리, 중복 접수를 병합하는 처리 작업 예약, 실패·중단 작업 원자 재접수와 최대 3회 상한, lease 기반 원자 삭제 purge, 명시적 HTTP 메서드 경계
 - Edge Functions: 인계 코드 생성·redeem, 관계도 위치 저장, pepper 기반 코드 해시, 원자 redeem RPC
-- 배포 준비 자동화: Android LAN env 생성, hosted Supabase DB·secret·Function 배포, readiness 검사, Vault 기반 cron 등록 템플릿
+- 배포 준비 자동화: Android LAN env 생성, 외부 인터넷용 학생 APK env·EAS 빌드 자동화, hosted Supabase DB·secret·Function 배포, readiness 검사, Vault 기반 cron 등록 템플릿
 - 격리 hosted 합성 시연 자동화: 임의 비밀번호 주입 bootstrap, 재실행 가능한 seed, anon 범위 smoke 검증
 - hosted private Storage smoke의 Windows PowerShell 문자열·UTF-8 바이트 배열 응답 호환
 - 로컬 Supabase 연결 직원 웹 공개 env 생성과 Auth health·Vite HTML readiness 검사
 - Android Expo Go 실기기 단계별 결과를 남기는 검증 기록 템플릿
 - Vercel Vite 빌드·출력·SPA rewrite와 EAS Android APK·App Bundle 프로필
+- hosted Supabase 합성 시연 프로젝트 배포와 EAS preview APK 생성
+- Vercel 계정 결제 차단 시 임시 외부 웹 시연을 위한 Vite preview host 허용과 Cloudflare quick tunnel 검증
+- 모바일·웹 로그인 화면의 시연용 샘플 계정 기본값과 샘플 선택 카드
+- 이음로그 로고 기반 앱 아이콘, adaptive icon, splash, 모바일 화면 로고, 웹 로그인·상단 로고, favicon 자산
+- 학생 웹 `/student`: 학생 전용 로그인, 내 기록 홈, 사건 메모, 브라우저 파일 업로드, 분석, 질문 답변, 제출 확인, 제출 완료 뒤 인계 코드 생성 화면
+- 학생 웹 API 경계: `StudentWebApiClient`, `sessionStorage` 학생 세션, 모바일과 같은 Supabase Edge Function·REST 경로, 직원 웹 storage와 분리
+- 고도화된 합성 시연 사건: 인물 8명·관계 10개·FactBlock 6개·증거 연결 13개, 실제 SVG 이미지·WebM 영상·텍스트 증거 파일, 오프라인 public 미리보기 fallback
+- 합성 증거 생성·업로드 자동화: `generate:synthetic:evidence`로 증거 원본 생성, `upload:synthetic:evidence`로 private Storage seed 객체 업로드
+- 모바일 앱 로그인 보정: pre-auth Edge Function 호출에 공개 key bearer fallback 적용, 샘플 ID `WEE-24-0510`의 hosted/local 데모 비밀번호 차이 자동 보정
+- 모바일 앱 사건철 미리보기: 홈·최종 확인·제출 완료 화면에서 인물 관계, 관계 흐름, FactBlock 타임라인, 증거 수를 읽기 전용 카드로 표시
+- 이음로그 브랜드 자산 재생성: `generate:brand`로 모바일 앱 아이콘·adaptive icon·로그인 로고와 웹 public 로고·아이콘 PNG 생성
+- SecureStore 키 호환성 수정: 세션·초안·오프라인 동기화 키에서 콜론을 제거하고 Expo 허용 문자만 사용
+- 모바일 오프라인 기록 모드: 네트워크 실패 또는 수동 선택 시 로컬 사건 ID로 진입, 온디바이스 AI 분석, 오프라인 제출 의사 저장, 인터넷 복구 뒤 서버 동기화 카드 제공
+- 온디바이스 AI 경계: `OnDeviceAiEngine`이 서버 없이 FactBlock, 질문, 로컬 인물·관계 힌트, 타임라인을 생성하고 단위 테스트로 검증
 
 ## 로컬 검증 완료
 
 - Docker 기반 `npx supabase db reset`
-- 합성 seed 관계도 노드 5개, 간선 4개, FactBlock-증거 연결 3개
+- 합성 seed 관계도 노드 8개, 간선 10개, FactBlock-증거 연결 13개
 - 합성 seed 두 번째 적용 뒤 질문·감사 로그·관계 데이터 중복 없음
 - 합성 seed의 임시 hosted형 비밀번호 회전과 로컬 기본 비밀번호 복원 검증
 - 학생 익명 ID 로그인과 Auth 세션 발급
@@ -71,6 +86,7 @@
 - 학생 본인 외 프로필 조회, 직접 역할 승격, 배정 INSERT, 직원 상태 PATCH, 학생 FactBlock-증거 연결 편집 차단
 - 플랫폼 기관 생성·수정·보관 처리와 감사 로그
 - 도메인 테스트, TypeScript 검사, 웹 프로덕션 빌드, Expo 의존성 검사
+- 학생 웹 흐름 단위 테스트: 제출 잠금, 분석 단계 잠금, 질문 저장 blocker 우선순위, 제출 사건 잠금 상태
 - Android Metro export와 Hermes 번들 생성
 - Expo Doctor `18/18` 검사 통과
 - headless Chrome 역할 선택, 상담자 관계도·증거 미리보기, 플랫폼 관리자 현황·기관 관리 렌더와 탭 전환 확인
@@ -141,4 +157,16 @@
 - 기관 관리자 전용 보관 정책 메뉴와 활성 기관 ID 기준 snapshot 선택
 - 연결 없는 증거에 임의 진술 번호를 만들지 않는 웹 순수 유틸리티 테스트
 - FactBlock 준비 전 분석 단계 이동 차단, 분석·제출 중 버튼 잠금, 하단 내비게이션 전용 기본 버튼 확장 스타일
+- 상담자 관계도 탭의 사건 행위 매트릭스, 표 행 터치 기반 인물·관계 spotlight, 선택 요소 중심 SVG 조명 스타일
 - GitHub Windows clean checkout의 `CRLF`에서도 Expo 생성 타입 파일 ignore 계약을 통과하는 readiness 정규식
+
+## 2026-06-10 관계도·학생 앱 고도화
+
+- 관계도 도메인 배치를 행/열 기반 사건 관계판으로 확장했다. `지원·보호 축`, `피해 학생 중심`, `행위·확산 축`, `목격·상황 단서`, `전달·후속 조치` 레인을 반환하고 노드별 `lane`, `degree`, `rank`를 계산한다.
+- 동일 인물 사이 복수 관계가 겹치지 않도록 곡선 제어점을 분리하고, 화살표 시작점과 끝점은 카드 중심이 아니라 노드 경계 기준으로 보정한다.
+- 상담자 웹 관계도를 인물 카드형 SVG로 교체했다. 각 노드는 번호·인물 카드·역할 캡션을 갖고, 관계선은 `행위·갈등`, `지원·보호`, `목격·간접` 범례 색을 따른다.
+- 관계도 아래에 인물 수, 관계 수, 최대 연결 수, 행/열 자동 배치 정보를 표시하고, 선 클릭 영역을 넓혀 터치/클릭 포커스가 안정적으로 동작하게 했다.
+- 학생 앱 오프라인 분석을 `OnDeviceAiEngine` 경계로 연결했다. 인터넷이 없어도 메모와 로컬 증거 목록을 FactBlock, 확인 질문, 인물, 관계 후보로 정리하고 제출 확인 화면에서 관계도·타임라인 요약을 보여준다.
+- 연결 모드에서는 모바일 앱이 서버의 `people`과 `relations`를 함께 복원해 학생도 앱 안에서 관계/타임라인 요약을 확인할 수 있게 했다.
+- Figma 보드 업데이트는 Figma Starter 플랜의 MCP 호출 제한으로 이번 실행에서 차단됐다. 기존 파일 키는 `BquluxkwLu0dqq3K3Oq8PZ`이며 제한 해제 후 사건 관계판 레퍼런스 프레임을 이어서 생성한다.
+- Vercel 배포는 CLI 인증 계정이 아직 `yhkwon2004`로 확인되어 `1004MVIP` 계정 토큰 전환이 필요하다.

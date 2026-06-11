@@ -67,7 +67,7 @@ async function extractFileText(asset: EvidenceRow, signedUrl: string, apiKey: st
     method: 'POST',
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: Deno.env.get('OPENAI_STRUCTURE_MODEL') ?? 'gpt-5.4-mini',
+      model: Deno.env.get('OPENAI_STRUCTURE_MODEL') ?? 'gpt-4.1-mini',
       store: false,
       input: [{
         role: 'user',

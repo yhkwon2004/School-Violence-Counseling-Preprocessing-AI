@@ -12,9 +12,14 @@
     "@ieumlog/domain": "*",
     "@supabase/supabase-js": "^2.106.2",
     "expo": "~54.0.0",
+    "expo-asset": "~12.0.13",
     "expo-audio": "~1.1.1",
     "expo-clipboard": "~8.0.8",
+    "expo-constants": "^18.0.13",
     "expo-document-picker": "~14.0.7",
+    "expo-image-picker": "~17.0.11",
+    "expo-linking": "^8.0.12",
+    "expo-location": "~19.0.8",
     "expo-router": "~6.0.0",
     "expo-secure-store": "~15.0.7",
     "expo-status-bar": "~3.0.8",
@@ -24,6 +29,7 @@
     "react-native-screens": "~4.16.0"
   },
   "devDependencies": {
-    "@types/react": "~19.1.10"
+    "@types/react": "~19.1.10",
+    "babel-preset-expo": "~54.0.11"
   }
 }
